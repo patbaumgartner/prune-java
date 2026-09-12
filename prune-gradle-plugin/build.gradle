@@ -1,0 +1,135 @@
+plugins {
+    id 'java-gradle-plugin'
+    // Adds publishToMavenLocal, which installs the plugin and its marker so other builds can
+    // resolve it from the local repository; there is no remote publication.
+    id 'maven-publish'
+    // Same source layout as the Maven modules: checkFormat runs with check, format rewrites.
+    id 'io.spring.javaformat' version '0.0.48'
+}
+
+group = 'com.patbaumgartner'
+// The Maven reactor at the repository root owns the version; this build consumes
+// prune-core at exactly that version, so reading it from the pom keeps the two builds
+// from drifting apart. groovy.xml.XmlSlurper is spelled out: Groovy 4 no longer imports it by default.
+version = new groovy.xml.XmlSlurper(false, false).parse(file('../pom.xml')).version.text()
+if (!version) {
+    throw new GradleException('Could not read the project version from ../pom.xml')
+}
+
+repositories {
+    // prune-core is built by the Maven reactor at the repository root; run
+    // "./mvnw install" there before building this plugin. Only that group is
+    // served from the local repository so everything else resolves reproducibly.
+    mavenLocal {
+        content {
+            includeGroup 'com.patbaumgartner'
+        }
+    }
+    mavenCentral()
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+    // Maven Central requires both next to the plugin jar.
+    withSourcesJar()
+    withJavadocJar()
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 17
+}
+
+// Same promise as project.build.outputTimestamp in the Maven build: rebuilding a tag yields
+// byte-identical jars.
+tasks.withType(AbstractArchiveTask).configureEach {
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+}
+
+tasks.withType(Javadoc).configureEach {
+    options.noTimestamp = true
+    // Same policy as the Maven modules: the code carries almost no Javadoc on purpose, and
+    // what exists must be well-formed.
+    options.addStringOption('Xdoclint:all,-missing', '-quiet')
+}
+
+dependencies {
+    implementation "com.patbaumgartner:prune-core:${version}"
+
+    testImplementation platform('org.junit:junit-bom:6.1.3')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    testImplementation gradleTestKit()
+}
+
+gradlePlugin {
+    plugins {
+        pruneJava {
+            id = 'com.patbaumgartner.prune-java'
+            implementationClass = 'com.patbaumgartner.prune.gradle.PruneGradlePlugin'
+            displayName = 'Prune Java Plugin'
+            description = 'Conservative dead-code analysis for Java projects'
+        }
+    }
+}
+
+publishing {
+    // JReleaser signs and uploads whatever the release workflow stages here, next to the
+    // Maven reactor's staging directory; nothing publishes to a remote repository directly.
+    repositories {
+        maven {
+            name = 'staging'
+            url = layout.buildDirectory.dir('staging-deploy')
+        }
+    }
+    // Applies to the plugin publication and to its marker, both of which Maven Central
+    // validates for name, description, url, licence, developer, and scm.
+    publications.withType(MavenPublication).configureEach {
+        pom {
+            url = 'https://github.com/patbaumgartner/prune-java'
+            inceptionYear = '2026'
+            licenses {
+                license {
+                    name = 'Apache-2.0'
+                    url = 'https://www.apache.org/licenses/LICENSE-2.0.txt'
+                    distribution = 'repo'
+                }
+            }
+            developers {
+                developer {
+                    id = 'patbaumgartner'
+                    name = 'Patrick Baumgartner'
+                    url = 'https://github.com/patbaumgartner'
+                }
+            }
+            scm {
+                connection = 'scm:git:https://github.com/patbaumgartner/prune-java.git'
+                developerConnection = 'scm:git:https://github.com/patbaumgartner/prune-java.git'
+                url = 'https://github.com/patbaumgartner/prune-java'
+            }
+            issueManagement {
+                system = 'GitHub Issues'
+                url = 'https://github.com/patbaumgartner/prune-java/issues'
+            }
+        }
+    }
+    // The marker publication already carries the plugin's display name and description.
+    publications.matching { it.name == 'pluginMaven' }.configureEach {
+        pom {
+            name = 'prune-gradle-plugin'
+            description = 'Gradle plugin with pruneCheck and pruneFix tasks for conservative Java dead-code analysis'
+        }
+    }
+}
+
+tasks.withType(Test).configureEach {
+    useJUnitPlatform()
+
+    // SampleProjectFunctionalTest reads samples/gradle-sample, which lives outside this
+    // build. Without declaring it, Gradle would serve a cached result after the sample
+    // changed. PathSensitivity.RELATIVE keeps the cache key portable across checkouts.
+    inputs.dir(layout.projectDirectory.dir('../samples/gradle-sample'))
+            .withPropertyName('gradleSample')
+            .withPathSensitivity(PathSensitivity.RELATIVE)
+}

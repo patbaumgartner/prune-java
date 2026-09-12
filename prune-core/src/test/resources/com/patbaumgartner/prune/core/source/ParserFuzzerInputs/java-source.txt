@@ -1,0 +1,60 @@
+package com.example;
+
+import java.io.Serializable;
+import java.util.List;
+
+/** Documented. */
+public final class Seed<T extends Comparable<T>> implements Serializable, Runnable {
+
+    private static final long serialVersionUID = 1L;
+    private static final String NAME = "com.example.Reflected", OTHER = "x";
+    private final List<T> items;
+    private int[] arr = {1, 2};
+
+    @Deprecated
+    private String annotated;
+
+    public Seed(List<T> items) {
+        this.items = items;
+    }
+
+    private Seed() {
+        this(List.of());
+    }
+
+    @Override
+    public void run() {
+        Runnable r = () -> helper(1);
+        System.out.println("""
+                text block with "quotes" and \\ escapes
+                """ + NAME + '"' + '\'' + 0x1F + 1_000L + 1e3d);
+    }
+
+    private int helper(int n) {
+        return n <= 1 ? 1 : n * helper(n - 1);
+    }
+
+    private static native void bind();
+
+    private void onStart(@SuppressWarnings("unused") Object event) {
+    }
+
+    enum Kind { A, B { void x() { } } }
+
+    record Pair(String left, String right) {
+        Pair {
+            java.util.Objects.requireNonNull(left);
+        }
+    }
+
+    sealed interface Shape permits Circle {
+        @interface Marker { }
+    }
+
+    static final class Circle implements Shape {
+        static long apply(long cents) { return cents - cents % 5; }
+    }
+
+    { arr[0] = 1; }
+    static { }
+}

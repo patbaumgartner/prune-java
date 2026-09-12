@@ -1,0 +1,5 @@
+# prune-java baseline: findings this project accepts, one "TYPE symbol" per line.
+UNUSED_CLASS com.example.Dead
+UNUSED_METHOD com.example.App#helper
+   UNUSED_FIELD	com.example.App#orphan   
+UNUSED_DEPENDENCY org.apache.commons:commons-lang3

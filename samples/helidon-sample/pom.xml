@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>io.helidon.applications</groupId>
+    <artifactId>helidon-se</artifactId>
+    <version>4.5.4</version>
+    <relativePath></relativePath>
+  </parent>
+
+  <groupId>com.example</groupId>
+  <artifactId>helidon-sample</artifactId>
+  <version>1.0.0</version>
+
+  <name>helidon-sample</name>
+  <description>Fixture project for prune-java: a Helidon SE application with a module descriptor and deliberate dead code.</description>
+
+  <properties>
+    <mainClass>com.example.helidonsample.Main</mainClass>
+  </properties>
+
+  <dependencies>
+    <!-- Used: imported by Main and GreetService. -->
+    <dependency>
+      <groupId>io.helidon.webserver</groupId>
+      <artifactId>helidon-webserver</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.helidon.config</groupId>
+      <artifactId>helidon-config</artifactId>
+    </dependency>
+
+    <!-- Runtime scope is not analyzed: a logging backend is loaded, not imported. -->
+    <dependency>
+      <groupId>io.helidon.logging</groupId>
+      <artifactId>helidon-logging-jul</artifactId>
+      <scope>runtime</scope>
+    </dependency>
+
+    <!-- Deliberately unused: never imported. See expected-findings.txt. -->
+    <dependency>
+      <groupId>org.jsoup</groupId>
+      <artifactId>jsoup</artifactId>
+      <version>1.23.2</version>
+    </dependency>
+
+    <dependency>
+      <groupId>io.helidon.webserver.testing.junit5</groupId>
+      <artifactId>helidon-webserver-testing-junit5</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+</project>

@@ -1,0 +1,90 @@
+# One owner per ecosystem. Security updates are enabled in the repository settings;
+# this file adds routine version updates so the SHA-pinned actions and the library
+# versions in both builds do not drift silently.
+#
+# `include: scope` appends (deps) or (deps-dev) to the prefix, so the prefix must not
+# spell the scope itself. The types match the ones CONTRIBUTING.md lists, because the
+# release changelog is generated from them: a dependency bump is `build` by the
+# Conventional Commits definition, and a workflow bump is `ci`.
+version: 2
+updates:
+  - package-ecosystem: maven
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Zurich
+    groups:
+      maven-plugins:
+        patterns:
+          - "org.apache.maven*"
+          - "org.codehaus.mojo*"
+      # The formatter and the pom sorter move together: a new formatter release can change the
+      # layout every source must be in, so their bump is reviewed as one.
+      formatting:
+        patterns:
+          - "io.spring.javaformat*"
+          - "com.github.ekryd.sortpom*"
+      test:
+        patterns:
+          - "org.junit*"
+          - "com.code-intelligence*"
+    ignore:
+      # maven.version is the plugin's Maven floor (3.9.0), not a library to keep current: it
+      # becomes the descriptor's requiredMavenVersion. See the property in pom.xml.
+      - dependency-name: "org.apache.maven:maven-plugin-api"
+      # 4.x betas of the core plugins are Maven 4 previews; the plugin must keep building on 3.9.
+      - dependency-name: "org.apache.maven.plugins:*"
+        versions: [">= 4.0.0-alpha-0"]
+      - dependency-name: "org.apache.maven.plugin-tools:*"
+        versions: [">= 4.0.0-alpha-0"]
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - java
+    commit-message:
+      prefix: build
+      prefix-development: build
+      include: scope
+
+  - package-ecosystem: gradle
+    directory: /prune-gradle-plugin
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Zurich
+    groups:
+      test:
+        patterns:
+          - "org.junit*"
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - java
+    commit-message:
+      prefix: build
+      prefix-development: build
+      include: scope
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Zurich
+    groups:
+      # One PR for everything, so codeql-action/init and analyze can never land at
+      # different versions.
+      actions:
+        patterns:
+          - "*"
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - github_actions
+    commit-message:
+      prefix: ci
+      include: scope

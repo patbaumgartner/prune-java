@@ -1,0 +1,48 @@
+# Ground truth for the prune-java integration tests: a Micronaut HTTP application.
+#
+# Format: <verdict> <type> <symbol>
+#
+#   unused     prune-java must report exactly this set of (type, symbol) pairs.
+#              SampleProjectFixtureTest asserts set equality, so a missing or an
+#              extra finding fails the build.
+#
+#   test-only  Not reported by default, because a test references the symbol.
+#              With test references excluded it is reported with exactly this
+#              type and the message says so.
+#
+#   kept       prune-java must never report this symbol, under any type. A false
+#              positive that deletes live code is the worst failure mode this
+#              project has. The type column names the guard that keeps the
+#              symbol when explanations are requested, or ANY when the symbol is
+#              referenced by an identifier and never reaches a guard.
+#
+# Micronaut generates its bean definitions at compile time from annotations,
+# so a @Controller, @Factory, or @Singleton class is never named in Java. The
+# annotationProcessor and runtimeOnly configurations are not analyzed at all.
+
+unused UNUSED_CLASS      com.example.micronautsample.LegacyExporter
+unused UNUSED_METHOD     com.example.micronautsample.GreetingService#legacyGreeting
+unused UNUSED_FIELD      com.example.micronautsample.GreetingFormatter#LEGACY_SEPARATOR
+unused UNUSED_VISIBILITY com.example.micronautsample.Defaults
+unused UNUSED_DEPENDENCY org.apache.commons:commons-csv
+
+# Only GreetingFormatterTest reads the nested Samples class.
+test-only UNUSED_CLASS   com.example.micronautsample.GreetingFormatter.Samples
+
+kept   annotation        com.example.micronautsample.HelloController
+kept   annotation        com.example.micronautsample.ClockFactory
+kept   annotation        com.example.micronautsample.StartupLogger
+# Micronaut modules are loaded, not imported.
+kept   runtime-only      io.micronaut:micronaut-http-server-netty
+kept   runtime-only      io.micronaut.serde:micronaut-serde-jackson
+
+kept   ANY               com.example.micronautsample.Application
+kept   ANY               com.example.micronautsample.Greeting
+kept   ANY               com.example.micronautsample.GreetingService
+kept   ANY               com.example.micronautsample.GreetingService#greetings
+kept   ANY               com.example.micronautsample.GreetingService#prefix
+kept   ANY               com.example.micronautsample.GreetingFormatter
+kept   ANY               com.example.micronautsample.GreetingFormatter#format
+kept   ANY               com.example.micronautsample.StartupLogger#LOG
+kept   ANY               com.example.micronautsample.Defaults#NAME
+kept   ANY               com.github.ben-manes.caffeine:caffeine

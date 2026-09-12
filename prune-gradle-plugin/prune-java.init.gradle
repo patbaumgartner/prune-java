@@ -1,0 +1,34 @@
+// Applies the plugin to a build that does not declare it, so pruneCheck and pruneFix can be run
+// against samples/gradle-sample (or any other project) without touching its build scripts:
+//
+//   ./gradlew publishToMavenLocal                                   # in this directory, once
+//   ../../prune-gradle-plugin/gradlew -I ../../prune-gradle-plugin/prune-java.init.gradle pruneCheck
+//
+// Applied by class, not by id: the init script classpath is invisible to project plugin lookup.
+
+initscript {
+    // The root pom owns the version, as in build.gradle.
+    def pom = new File(sourceFile.parentFile, '../pom.xml')
+    def pruneVersion = new groovy.xml.XmlSlurper(false, false).parse(pom).version.text()
+    if (!pruneVersion) {
+        throw new GradleException("Could not read the project version from ${pom}")
+    }
+
+    repositories {
+        mavenLocal {
+            content {
+                includeGroup 'com.patbaumgartner'
+            }
+        }
+        // Parsing the prune-core pom needs the BOM its parent imports.
+        mavenCentral()
+    }
+
+    dependencies {
+        classpath "com.patbaumgartner:prune-gradle-plugin:${pruneVersion}"
+    }
+}
+
+rootProject {
+    apply plugin: com.patbaumgartner.prune.gradle.PruneGradlePlugin
+}
