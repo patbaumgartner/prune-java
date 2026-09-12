@@ -1,0 +1,49 @@
+plugins {
+    id 'io.micronaut.application'
+}
+
+group = 'com.example'
+version = '1.0.0'
+
+repositories {
+    mavenCentral()
+}
+
+java {
+    toolchain {
+        // Micronaut 5 publishes its modules for JVM 25; an older toolchain cannot resolve them.
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+}
+
+micronaut {
+    runtime 'netty'
+    testRuntime 'junit5'
+    processing {
+        incremental true
+        annotations 'com.example.micronautsample.*'
+    }
+}
+
+application {
+    mainClass = 'com.example.micronautsample.Application'
+}
+
+dependencies {
+    // Micronaut modules are runtime wiring; prune-java never reports them.
+    implementation 'io.micronaut:micronaut-http-server-netty'
+    implementation 'io.micronaut.serde:micronaut-serde-jackson'
+
+    // Used: imported by GreetingService.
+    implementation "com.github.ben-manes.caffeine:caffeine:${caffeineVersion}"
+
+    // Deliberately unused: never imported. See expected-findings.txt.
+    implementation "org.apache.commons:commons-csv:${commonsCsvVersion}"
+
+    annotationProcessor 'io.micronaut:micronaut-http-validation'
+    annotationProcessor 'io.micronaut.serde:micronaut-serde-processor'
+    runtimeOnly 'ch.qos.logback:logback-classic'
+
+    testImplementation 'io.micronaut:micronaut-http-client'
+    testImplementation 'io.micronaut.test:micronaut-test-junit5'
+}

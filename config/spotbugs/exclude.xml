@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Shared SpotBugs exclusions for the Maven reactor and the Gradle plugin build. Every entry is
+    pinned to one class, one method and one pattern and states why the report is wrong there; a
+    blanket class or pattern match is not acceptable. Fix the code first and add an entry only when
+    the detector cannot see the invariant the code relies on.
+-->
+<FindBugsFilter xmlns="https://github.com/spotbugs/filter/3.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="https://github.com/spotbugs/filter/3.0.0 https://raw.githubusercontent.com/spotbugs/spotbugs/4.10.4/spotbugs/etc/findbugsfilter.xsd">
+
+    <!--
+        apply() refuses every file whose real path leaves the project root before this method runs,
+        and the temp file is created next to that verified target.
+    -->
+    <Match>
+        <Class name="com.patbaumgartner.prune.core.fix.SourceAutofixEngine"/>
+        <Method name="writeAtomically"/>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+    </Match>
+
+    <!--
+        Package segments are folded to lower case to meet lower-cased coordinate tokens. A
+        case-folding collision can only make a dependency count as used, which is the conservative
+        direction; nothing here is an access decision.
+    -->
+    <Match>
+        <Class name="com.patbaumgartner.prune.core.dependency.DependencyUsage"/>
+        <Method name="add"/>
+        <Bug pattern="IMPROPER_UNICODE"/>
+    </Match>
+
+    <!-- These tests pass null on purpose to prove the record constructors reject it. -->
+    <Match>
+        <Class name="com.patbaumgartner.prune.core.report.AnalysisReportTest"/>
+        <Bug pattern="NP_NULL_PARAM_DEREF_NONVIRTUAL"/>
+    </Match>
+
+    <!-- Test helpers assembling a pom from module names the test itself spells out. -->
+    <Match>
+        <Class name="com.patbaumgartner.prune.core.analyzer.ConservativeUnusedCodeAnalyzerTest"/>
+        <Method name="aggregatorPom"/>
+        <Bug pattern="POTENTIAL_XML_INJECTION"/>
+    </Match>
+    <Match>
+        <Class name="com.patbaumgartner.prune.core.config.BuildRootsTest"/>
+        <Method name="aggregator"/>
+        <Bug pattern="POTENTIAL_XML_INJECTION"/>
+    </Match>
+
+    <!--
+        Gradle instantiates the abstract task type through a generated subclass that does not
+        override getOutputs(); the constructor is the only place a task type can declare that it is
+        never up to date.
+    -->
+    <Match>
+        <Class name="com.patbaumgartner.prune.gradle.PruneBaselineTask"/>
+        <Method name="&lt;init&gt;"/>
+        <Bug pattern="MC_OVERRIDABLE_METHOD_CALL_IN_CONSTRUCTOR"/>
+    </Match>
+
+    <!--
+        Every logged line comes out of String.lines(), which strips the line terminators the
+        detector is looking for; the renderer escapes the other control characters.
+    -->
+    <Match>
+        <Class name="com.patbaumgartner.prune.gradle.TaskSupport"/>
+        <Method name="logReport"/>
+        <Bug pattern="CRLF_INJECTION_LOGS"/>
+    </Match>
+
+</FindBugsFilter>

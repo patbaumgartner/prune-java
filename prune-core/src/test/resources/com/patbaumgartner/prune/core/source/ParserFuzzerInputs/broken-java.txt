@@ -1,0 +1,2 @@
+package p;class A{private int x=;;;{{{ record R(int a{ enum E{A,B;;} <T>void m(T... t)throws{ "unterminated
+'c \u0068elper() @ @interface I{} module m { requires x; } ]]] }}}}}}} /* open comment
