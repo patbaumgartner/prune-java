@@ -1,0 +1,56 @@
+name: build
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    # README promises "JDK 21 or later": test the oldest supported and the current LTS.
+    strategy:
+      fail-fast: false
+      matrix:
+        java: ['21', '25']
+
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+          cache: maven
+
+      # install, not verify: the Gradle build below resolves prune-core from the
+      # local repository.
+      - run: ./mvnw -B -ntp install
+
+      # Also validates the checksum of the Gradle wrapper jar before it is executed.
+      - uses: gradle/actions/setup-gradle@48b5f213c81028ace310571dc5ec0fbbca0b2947 # v4
+
+      - run: ./gradlew build --stacktrace
+        working-directory: prune-gradle-plugin
+
+      - if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: test-results-jdk${{ matrix.java }}
+          path: |
+            **/target/surefire-reports
+            prune-maven-plugin/target/it/*/build.log
+            prune-gradle-plugin/build/reports/tests/test
+          retention-days: 7
