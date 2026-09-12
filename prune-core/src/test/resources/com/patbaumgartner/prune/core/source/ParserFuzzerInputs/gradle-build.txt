@@ -1,0 +1,18 @@
+plugins {
+    id 'java'
+}
+
+/* dependencies { implementation 'commented:out:1' } */
+dependencies {
+    // implementation 'also:commented:2'
+    implementation 'org.slf4j:slf4j-api:2.0.19'
+    implementation("commons-io:commons-io:2.22.0") {
+        exclude group: 'x'
+    }
+    implementation group: 'com.google.guava', name: 'guava', version: '33.7.1-jre'
+    implementation "org.dynamic:${version}"
+    implementation 'org.classified:artifact:1.0:linux@jar'
+    compileOnly 'org.projectlombok:lombok:1.18.42'
+    api 'unterminated:block:1' {
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    runtimeOnly 'ch.qos.logback:logback-classic:1.5.19'

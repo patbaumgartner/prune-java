@@ -1,0 +1,14 @@
+# Project-specific forbidden signatures, checked next to the bundled jdk-unsafe,
+# jdk-deprecated, jdk-non-portable, and jdk-reflection sets.
+#
+# The charset-less overloads below default to UTF-8 only on Java 18 and later. This
+# project compiles for Java 17, where they read the platform charset instead, so
+# the encoding of every file the analyzer reads or rewrites would depend on the
+# machine running it. Pass StandardCharsets.UTF_8 explicitly.
+@defaultMessage Pass StandardCharsets.UTF_8 explicitly; the charset-less overload is platform dependent on Java 17
+java.nio.file.Files#readString(java.nio.file.Path)
+java.nio.file.Files#writeString(java.nio.file.Path,java.lang.CharSequence,java.nio.file.OpenOption[])
+java.nio.file.Files#readAllLines(java.nio.file.Path)
+java.nio.file.Files#lines(java.nio.file.Path)
+java.nio.file.Files#newBufferedReader(java.nio.file.Path)
+java.nio.file.Files#newBufferedWriter(java.nio.file.Path,java.nio.file.OpenOption[])

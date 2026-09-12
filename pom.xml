@@ -1,0 +1,667 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>com.patbaumgartner</groupId>
+  <artifactId>prune-java</artifactId>
+  <version>0.1.0-SNAPSHOT</version>
+  <packaging>pom</packaging>
+
+  <name>prune-java</name>
+  <description>Conservative Java dead-code analysis</description>
+
+  <!--
+    prune-gradle-plugin is deliberately not a module here. It needs the real Gradle API, which is
+    only available to a Gradle build, so it ships as a standalone build under prune-gradle-plugin/
+    that consumes prune-core from the local repository. See README.md.
+  -->
+  <modules>
+    <module>prune-core</module>
+    <module>prune-cli</module>
+    <module>prune-lsp</module>
+    <module>prune-maven-plugin</module>
+  </modules>
+
+  <properties>
+    <!--
+      Every plugin and library version lives here, once. prune-gradle-plugin/settings.gradle reads
+      the project version and every version it shares with this reactor (the analyzers, the
+      formatter, JUnit) from this file, so both builds run the same Checkstyle, PMD, SpotBugs, Error
+      Prone, NullAway, forbidden-apis, and Spring Java Format, and Dependabot bumps each of them
+      once. Only the Gradle-only plugins are pinned elsewhere, in
+      prune-gradle-plugin/gradle.properties.
+    -->
+    <checkstyle.version>14.1.0</checkstyle.version>
+    <errorprone.version>2.50.0</errorprone.version>
+    <exec-maven-plugin.version>3.6.4</exec-maven-plugin.version>
+    <extra-enforcer-rules.version>1.12.1</extra-enforcer-rules.version>
+    <findsecbugs.version>1.14.0</findsecbugs.version>
+    <flatten-maven-plugin.version>1.8.0</flatten-maven-plugin.version>
+    <forbiddenapis.version>3.10</forbiddenapis.version>
+    <!--
+      lsp4j declares gson as an open range, which would make every prune-lsp build resolve whatever
+      is newest; pinning it here keeps the build reproducible and lets Dependabot own the bump.
+    -->
+    <gson.version>2.14.0</gson.version>
+    <jazzer.version>0.30.0</jazzer.version>
+    <jreleaser.version>1.26.0</jreleaser.version>
+    <jspecify.version>1.0.1</jspecify.version>
+    <junit.version>6.1.3</junit.version>
+    <lsp4j.version>1.0.0</lsp4j.version>
+    <maven-checkstyle-plugin.version>3.6.0</maven-checkstyle-plugin.version>
+    <maven-clean-plugin.version>3.5.0</maven-clean-plugin.version>
+    <maven-compiler-plugin.version>3.16.0</maven-compiler-plugin.version>
+    <maven-dependency-plugin.version>3.11.0</maven-dependency-plugin.version>
+    <maven-deploy-plugin.version>3.1.4</maven-deploy-plugin.version>
+    <maven-enforcer-plugin.version>3.6.3</maven-enforcer-plugin.version>
+    <maven-help-plugin.version>3.5.2</maven-help-plugin.version>
+    <maven-install-plugin.version>3.1.4</maven-install-plugin.version>
+    <maven-invoker-plugin.version>3.10.1</maven-invoker-plugin.version>
+    <maven-jar-plugin.version>3.5.1</maven-jar-plugin.version>
+    <maven-javadoc-plugin.version>3.12.0</maven-javadoc-plugin.version>
+    <maven-plugin-tools.version>3.16.0</maven-plugin-tools.version>
+    <maven-pmd-plugin.version>3.28.0</maven-pmd-plugin.version>
+    <maven-resources-plugin.version>3.5.0</maven-resources-plugin.version>
+    <maven-site-plugin.version>3.22.0</maven-site-plugin.version>
+    <maven-source-plugin.version>3.4.0</maven-source-plugin.version>
+    <maven-surefire-plugin.version>3.6.0</maven-surefire-plugin.version>
+    <maven.compiler.release>17</maven.compiler.release>
+    <!--
+      The oldest Maven the plugin runs on. It is both the maven-plugin-api the mojos compile against
+      and the plugin descriptor's requiredMavenVersion, so raising it locks every user on an older
+      Maven out of the plugin; it is excluded from Dependabot for that reason. Maven 4 satisfies it
+      too; CI runs the plugin under both lines.
+    -->
+    <maven.version>3.9.0</maven.version>
+    <nullaway.version>0.14.1</nullaway.version>
+    <pmd.version>7.27.0</pmd.version>
+    <!--
+      Fixed timestamp for every archive entry, which makes the published jars byte-for-byte
+      reproducible: anyone can rebuild the tag and compare against Maven Central. Bump it when
+      cutting a release; the release workflow refuses a tag that reuses the previous one.
+    -->
+    <project.build.outputTimestamp>2026-09-14T12:00:00Z</project.build.outputTimestamp>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+    <sortpom.version>4.0.0</sortpom.version>
+    <spotbugs-maven-plugin.version>4.10.4.1</spotbugs-maven-plugin.version>
+    <spotbugs.version>4.10.4</spotbugs.version>
+    <spring-javaformat.version>0.0.48</spring-javaformat.version>
+    <versions-maven-plugin.version>2.22.0</versions-maven-plugin.version>
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>org.junit</groupId>
+        <artifactId>junit-bom</artifactId>
+        <version>${junit.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>com.code-intelligence</groupId>
+        <artifactId>jazzer-api</artifactId>
+        <version>${jazzer.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.jspecify</groupId>
+        <artifactId>jspecify</artifactId>
+        <version>${jspecify.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.google.code.gson</groupId>
+        <artifactId>gson</artifactId>
+        <version>${gson.version}</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <dependencies>
+    <!--
+      Nullness annotations for NullAway. Provided scope keeps them out of every published POM's
+      compile dependencies, so prune-core still has none; check target/.flattened-pom.xml.
+    -->
+    <dependency>
+      <groupId>org.jspecify</groupId>
+      <artifactId>jspecify</artifactId>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.platform</groupId>
+      <artifactId>junit-platform-launcher</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <pluginManagement>
+      <plugins>
+        <!--
+          Error Prone and NullAway run inside javac. The arguments are what errorprone.info
+          prescribes: compilePolicy=simple lets the checks see whole compilation units, should-stop
+          keeps javac from reporting on trees it could not attribute, addTypeAnnotationsToSymbol is
+          what a JDK 21 javac needs to expose type annotations to the checks
+          (google/error-prone#5426; later JDKs accept it), and the plugin line turns NullAway on for
+          this project's packages as an error. Fields that JUnit or Maven inject after construction
+          are excluded from the initialization check; parameters that may legitimately stay unset
+          are annotated Nullable instead. Error Prone touches jdk.compiler internals, which
+          .mvn/jvm.config opens.
+        -->
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-compiler-plugin</artifactId>
+          <version>${maven-compiler-plugin.version}</version>
+          <configuration>
+            <showWarnings>true</showWarnings>
+            <compilerArgs>
+              <arg>-XDcompilePolicy=simple</arg>
+              <arg>--should-stop=ifError=FLOW</arg>
+              <arg>-XDaddTypeAnnotationsToSymbol=true</arg>
+              <arg>-Xplugin:ErrorProne
+                                -XepOpt:NullAway:AnnotatedPackages=com.patbaumgartner
+                                -XepOpt:NullAway:ExcludedFieldAnnotations=org.junit.jupiter.api.io.TempDir,org.apache.maven.plugins.annotations.Parameter
+                                -XepOpt:NullAway:HandleTestAssertionLibraries=true
+                                -Xep:NullAway:ERROR</arg>
+            </compilerArgs>
+            <annotationProcessorPaths>
+              <path>
+                <groupId>com.google.errorprone</groupId>
+                <artifactId>error_prone_core</artifactId>
+                <version>${errorprone.version}</version>
+              </path>
+              <path>
+                <groupId>com.uber.nullaway</groupId>
+                <artifactId>nullaway</artifactId>
+                <version>${nullaway.version}</version>
+              </path>
+            </annotationProcessorPaths>
+          </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-clean-plugin</artifactId>
+          <version>${maven-clean-plugin.version}</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-site-plugin</artifactId>
+          <version>${maven-site-plugin.version}</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-checkstyle-plugin</artifactId>
+          <version>${maven-checkstyle-plugin.version}</version>
+          <configuration>
+            <configLocation>${maven.multiModuleProjectDirectory}/config/checkstyle/checkstyle.xml</configLocation>
+            <includeTestSourceDirectory>true</includeTestSourceDirectory>
+            <consoleOutput>true</consoleOutput>
+            <violationSeverity>warning</violationSeverity>
+          </configuration>
+          <dependencies>
+            <dependency>
+              <groupId>com.puppycrawl.tools</groupId>
+              <artifactId>checkstyle</artifactId>
+              <version>${checkstyle.version}</version>
+            </dependency>
+          </dependencies>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-pmd-plugin</artifactId>
+          <version>${maven-pmd-plugin.version}</version>
+          <configuration>
+            <rulesets>
+              <ruleset>${maven.multiModuleProjectDirectory}/config/pmd/ruleset.xml</ruleset>
+            </rulesets>
+            <includeTests>true</includeTests>
+            <printFailingErrors>true</printFailingErrors>
+            <minimumTokens>60</minimumTokens>
+            <linkXRef>false</linkXRef>
+          </configuration>
+          <dependencies>
+            <dependency>
+              <groupId>net.sourceforge.pmd</groupId>
+              <artifactId>pmd-core</artifactId>
+              <version>${pmd.version}</version>
+            </dependency>
+            <dependency>
+              <groupId>net.sourceforge.pmd</groupId>
+              <artifactId>pmd-java</artifactId>
+              <version>${pmd.version}</version>
+            </dependency>
+          </dependencies>
+        </plugin>
+        <plugin>
+          <groupId>com.github.spotbugs</groupId>
+          <artifactId>spotbugs-maven-plugin</artifactId>
+          <version>${spotbugs-maven-plugin.version}</version>
+          <configuration>
+            <effort>Max</effort>
+            <threshold>Low</threshold>
+            <includeTests>true</includeTests>
+            <excludeFilterFile>${maven.multiModuleProjectDirectory}/config/spotbugs/exclude.xml</excludeFilterFile>
+            <plugins>
+              <plugin>
+                <groupId>com.h3xstream.findsecbugs</groupId>
+                <artifactId>findsecbugs-plugin</artifactId>
+                <version>${findsecbugs.version}</version>
+              </plugin>
+            </plugins>
+          </configuration>
+          <dependencies>
+            <dependency>
+              <groupId>com.github.spotbugs</groupId>
+              <artifactId>spotbugs</artifactId>
+              <version>${spotbugs.version}</version>
+            </dependency>
+          </dependencies>
+        </plugin>
+        <plugin>
+          <groupId>de.thetaphi</groupId>
+          <artifactId>forbiddenapis</artifactId>
+          <version>${forbiddenapis.version}</version>
+          <configuration>
+            <bundledSignatures>
+              <bundledSignature>jdk-unsafe</bundledSignature>
+              <bundledSignature>jdk-deprecated</bundledSignature>
+              <bundledSignature>jdk-non-portable</bundledSignature>
+              <bundledSignature>jdk-reflection</bundledSignature>
+            </bundledSignatures>
+            <signaturesFiles>
+              <signaturesFile>${maven.multiModuleProjectDirectory}/config/forbidden-apis/signatures.txt</signaturesFile>
+            </signaturesFiles>
+          </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-surefire-plugin</artifactId>
+          <version>${maven-surefire-plugin.version}</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-jar-plugin</artifactId>
+          <version>${maven-jar-plugin.version}</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-dependency-plugin</artifactId>
+          <version>${maven-dependency-plugin.version}</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-resources-plugin</artifactId>
+          <version>${maven-resources-plugin.version}</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-install-plugin</artifactId>
+          <version>${maven-install-plugin.version}</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-plugin-plugin</artifactId>
+          <version>${maven-plugin-tools.version}</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-invoker-plugin</artifactId>
+          <version>${maven-invoker-plugin.version}</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-deploy-plugin</artifactId>
+          <version>${maven-deploy-plugin.version}</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-source-plugin</artifactId>
+          <version>${maven-source-plugin.version}</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-javadoc-plugin</artifactId>
+          <version>${maven-javadoc-plugin.version}</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-enforcer-plugin</artifactId>
+          <version>${maven-enforcer-plugin.version}</version>
+          <dependencies>
+            <dependency>
+              <groupId>org.codehaus.mojo</groupId>
+              <artifactId>extra-enforcer-rules</artifactId>
+              <version>${extra-enforcer-rules.version}</version>
+            </dependency>
+          </dependencies>
+        </plugin>
+        <!-- Invoked from the command line by the release workflow and the release steps. -->
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-help-plugin</artifactId>
+          <version>${maven-help-plugin.version}</version>
+        </plugin>
+        <plugin>
+          <groupId>org.codehaus.mojo</groupId>
+          <artifactId>versions-maven-plugin</artifactId>
+          <version>${versions-maven-plugin.version}</version>
+        </plugin>
+        <plugin>
+          <groupId>org.codehaus.mojo</groupId>
+          <artifactId>exec-maven-plugin</artifactId>
+          <version>${exec-maven-plugin.version}</version>
+        </plugin>
+        <plugin>
+          <groupId>io.spring.javaformat</groupId>
+          <artifactId>spring-javaformat-maven-plugin</artifactId>
+          <version>${spring-javaformat.version}</version>
+        </plugin>
+        <plugin>
+          <groupId>com.github.ekryd.sortpom</groupId>
+          <artifactId>sortpom-maven-plugin</artifactId>
+          <version>${sortpom.version}</version>
+          <configuration>
+            <predefinedSortOrder>custom_1</predefinedSortOrder>
+            <sortProperties>true</sortProperties>
+            <createBackupFile>false</createBackupFile>
+            <verifyFail>stop</verifyFail>
+            <verifyFailOn>strict</verifyFailOn>
+          </configuration>
+        </plugin>
+        <!--
+          The version the reactor's own dead-code check runs with, so that after `install`
+          `./mvnw com.patbaumgartner:prune-maven-plugin:check` analyzes every module with the plugin
+          that was just built. It is not bound to a phase: the plugin cannot analyze the build that
+          is still producing it.
+        -->
+        <plugin>
+          <groupId>com.patbaumgartner</groupId>
+          <artifactId>prune-maven-plugin</artifactId>
+          <version>${project.version}</version>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+
+    <plugins>
+      <!--
+        Source layout is Spring Java Format and pom order is sortpom's custom_1; both are checked
+        here so a stray edit fails locally before it reaches CI.
+        `./mvnw spring-javaformat:apply sortpom:sort` rewrites everything into shape.
+      -->
+      <plugin>
+        <groupId>io.spring.javaformat</groupId>
+        <artifactId>spring-javaformat-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>check-source-format</id>
+            <goals>
+              <goal>validate</goal>
+            </goals>
+            <phase>validate</phase>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>com.github.ekryd.sortpom</groupId>
+        <artifactId>sortpom-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>check-pom-order</id>
+            <goals>
+              <goal>verify</goal>
+            </goals>
+            <phase>validate</phase>
+          </execution>
+        </executions>
+      </plugin>
+      <!--
+        Checkstyle covers what the formatter cannot see (imports, naming, class design,
+        equals/hashCode); it runs in validate next to the formatter so a violation fails the build
+        before anything is compiled. The rules live in config/checkstyle/checkstyle.xml.
+      -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-checkstyle-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>check-style</id>
+            <goals>
+              <goal>check</goal>
+            </goals>
+            <phase>validate</phase>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!--
+        Bytecode-level analysis after the tests: PMD and CPD over the sources, SpotBugs with Find
+        Security Bugs over main and test classes, forbidden-apis against the bundled JDK signature
+        sets plus config/forbidden-apis/signatures.txt. Each one fails the build on its first
+        finding; there is no report-only mode here.
+      -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-pmd-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>check-pmd</id>
+            <goals>
+              <goal>check</goal>
+              <goal>cpd-check</goal>
+            </goals>
+            <phase>verify</phase>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>com.github.spotbugs</groupId>
+        <artifactId>spotbugs-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>check-spotbugs</id>
+            <goals>
+              <goal>check</goal>
+            </goals>
+            <phase>verify</phase>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>de.thetaphi</groupId>
+        <artifactId>forbiddenapis</artifactId>
+        <executions>
+          <execution>
+            <id>check-forbidden-apis</id>
+            <goals>
+              <goal>check</goal>
+              <goal>testCheck</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!--
+        Fail on an environment that cannot produce the artifacts this project promises, rather than
+        on a mysterious compiler error later. Java 21 builds the project even though the bytecode
+        targets 17; Maven 3.9 is the plugin's own floor. The dependency rules keep the graph honest:
+        one version per artifact, no ranges, every plugin pinned, no legacy logging or JUnit 4
+        artifacts, and no dependency compiled above the bytecode level this project targets.
+      -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>enforce-build-environment</id>
+            <goals>
+              <goal>enforce</goal>
+            </goals>
+            <phase>validate</phase>
+            <configuration>
+              <rules>
+                <requireJavaVersion>
+                  <version>[21,)</version>
+                </requireJavaVersion>
+                <requireMavenVersion>
+                  <version>[${maven.version},)</version>
+                </requireMavenVersion>
+                <banDuplicatePomDependencyVersions></banDuplicatePomDependencyVersions>
+                <requirePluginVersions>
+                  <banLatest>true</banLatest>
+                  <banRelease>true</banRelease>
+                  <banSnapshots>true</banSnapshots>
+                  <phases>clean,deploy,site</phases>
+                </requirePluginVersions>
+                <banDynamicVersions>
+                  <!--
+                    The reactor's own modules share one version, which is a SNAPSHOT between
+                    releases; each module inherits it from this pom.
+                  -->
+                  <ignores>
+                    <ignore>${project.groupId}</ignore>
+                  </ignores>
+                </banDynamicVersions>
+                <dependencyConvergence></dependencyConvergence>
+                <requireUpperBoundDeps></requireUpperBoundDeps>
+                <banCircularDependencies></banCircularDependencies>
+                <bannedDependencies>
+                  <excludes>
+                    <exclude>junit:junit</exclude>
+                    <exclude>org.junit.vintage:junit-vintage-engine</exclude>
+                    <exclude>commons-logging:commons-logging</exclude>
+                    <exclude>log4j:log4j</exclude>
+                    <exclude>org.slf4j:slf4j-log4j12</exclude>
+                    <exclude>com.google.code.findbugs:jsr305</exclude>
+                  </excludes>
+                </bannedDependencies>
+                <enforceBytecodeVersion>
+                  <maxJdkVersion>${maven.compiler.release}</maxJdkVersion>
+                  <ignoredScopes>
+                    <ignoredScope>test</ignoredScope>
+                  </ignoredScopes>
+                </enforceBytecodeVersion>
+              </rules>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!-- Maven Central requires a sources and a javadoc jar next to every published jar. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-source-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>attach-sources</id>
+            <goals>
+              <goal>jar-no-fork</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-javadoc-plugin</artifactId>
+        <configuration>
+          <!--
+            The code carries almost no Javadoc on purpose; what exists must be well-formed.
+          -->
+          <doclint>all,-missing</doclint>
+          <quiet>true</quiet>
+        </configuration>
+        <executions>
+          <execution>
+            <id>attach-javadocs</id>
+            <goals>
+              <goal>jar</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!--
+        Publish each module with a standalone POM: inheritance and ${...} references are resolved,
+        so a consumer never needs this parent. The parent keeps its own POM because flatten leaves
+        pom-packaging projects alone by default.
+      -->
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>flatten-maven-plugin</artifactId>
+        <version>${flatten-maven-plugin.version}</version>
+        <configuration>
+          <flattenMode>oss</flattenMode>
+          <pomElements>
+            <profiles>remove</profiles>
+          </pomElements>
+        </configuration>
+        <executions>
+          <execution>
+            <id>flatten</id>
+            <goals>
+              <goal>flatten</goal>
+            </goals>
+            <phase>process-resources</phase>
+          </execution>
+          <execution>
+            <id>flatten.clean</id>
+            <goals>
+              <goal>clean</goal>
+            </goals>
+            <phase>clean</phase>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!--
+        For staging, signing, and publishing a release by hand with ./mvnw -N jreleaser:full-release
+        -Djreleaser.config.file=jreleaser.yml. CI uses the jreleaser/release-action, which reads the
+        same jreleaser.yml.
+      -->
+      <plugin>
+        <groupId>org.jreleaser</groupId>
+        <artifactId>jreleaser-maven-plugin</artifactId>
+        <version>${jreleaser.version}</version>
+        <inherited>false</inherited>
+      </plugin>
+    </plugins>
+  </build>
+  <!--
+    Maven appends a module's artifactId to inherited URLs unless told not to, which is right for a
+    project whose modules live in a repository each and wrong for this one.
+  -->
+  <url child.project.url.inherit.append.path="false">https://github.com/patbaumgartner/prune-java</url>
+  <inceptionYear>2026</inceptionYear>
+
+  <licenses>
+    <license>
+      <name>Apache-2.0</name>
+      <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+
+  <developers>
+    <developer>
+      <id>patbaumgartner</id>
+      <name>Patrick Baumgartner</name>
+      <url>https://github.com/patbaumgartner</url>
+    </developer>
+  </developers>
+
+  <scm child.scm.connection.inherit.append.path="false" child.scm.developerConnection.inherit.append.path="false" child.scm.url.inherit.append.path="false">
+    <connection>scm:git:https://github.com/patbaumgartner/prune-java.git</connection>
+    <developerConnection>scm:git:https://github.com/patbaumgartner/prune-java.git</developerConnection>
+    <url>https://github.com/patbaumgartner/prune-java</url>
+    <tag>HEAD</tag>
+  </scm>
+
+  <issueManagement>
+    <system>GitHub Issues</system>
+    <url>https://github.com/patbaumgartner/prune-java/issues</url>
+  </issueManagement>
+</project>

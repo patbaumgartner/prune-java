@@ -1,0 +1,54 @@
+# Ground truth for the prune-java integration tests: a Spring Boot web application.
+#
+# Format: <verdict> <type> <symbol>
+#
+#   unused     prune-java must report exactly this set of (type, symbol) pairs.
+#              SampleProjectFixtureTest asserts set equality, so a missing or an
+#              extra finding fails the build.
+#
+#   test-only  Not reported by default, because a test references the symbol.
+#              With test references excluded it is reported with exactly this
+#              type and the message says so.
+#
+#   kept       prune-java must never report this symbol, under any type. A false
+#              positive that deletes live code is the worst failure mode this
+#              project has. The type column names the guard that keeps the
+#              symbol when explanations are requested, or ANY when the symbol is
+#              referenced by an identifier and never reaches a guard.
+#
+# Spring wires beans by annotation and by META-INF/spring.factories, so the
+# framework-owned code never appears in an identifier reference and is kept by
+# the annotation and literal guards. The private lifecycle callbacks are the
+# case an identifier-only analyzer would delete.
+
+unused UNUSED_CLASS      com.example.springsample.ReportExporter
+unused UNUSED_METHOD     com.example.springsample.GreetingService#legacyGreeting
+unused UNUSED_FIELD      com.example.springsample.GreetingFormatter#LEGACY_SEPARATOR
+unused UNUSED_VISIBILITY com.example.springsample.SupportCodes
+unused UNUSED_DEPENDENCY com.google.guava:guava
+
+# Only AuditTrailTest creates an AuditTrail.
+test-only UNUSED_CLASS   com.example.springsample.AuditTrail
+
+# Component scanning picks these up; nothing names them in Java.
+kept   annotation        com.example.springsample.GreetingController
+kept   annotation        com.example.springsample.GreetingConfiguration
+kept   annotation        com.example.springsample.GreetingService#warmUp
+kept   annotation        com.example.springsample.GreetingService#release
+# A private field inside an annotated class is never reported, because JPA,
+# Jackson, and Lombok read such fields reflectively; the analyzer does not know
+# that @Configuration is not one of them. This is the documented trade-off.
+kept   annotated-owner   com.example.springsample.GreetingConfiguration#LEGACY_ZONE
+# Named only in META-INF/spring.factories.
+kept   literal           com.example.springsample.StartupListener
+# Starters are loaded, not imported; test-scoped dependencies are not analyzed.
+kept   runtime-only      org.springframework.boot:spring-boot-starter-webmvc
+kept   dependency-scope  org.springframework.boot:spring-boot-starter-test
+
+kept   ANY               com.example.springsample.SpringSampleApplication
+kept   ANY               com.example.springsample.GreetingService
+kept   ANY               com.example.springsample.GreetingService#prefix
+kept   ANY               com.example.springsample.GreetingFormatter
+kept   ANY               com.example.springsample.GreetingFormatter#format
+kept   ANY               com.example.springsample.SupportCodes#DEFAULT_LOCALE
+kept   ANY               org.apache.commons:commons-text

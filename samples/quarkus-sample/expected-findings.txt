@@ -1,0 +1,50 @@
+# Ground truth for the prune-java integration tests: a Quarkus REST application.
+#
+# Format: <verdict> <type> <symbol>
+#
+#   unused     prune-java must report exactly this set of (type, symbol) pairs.
+#              SampleProjectFixtureTest asserts set equality, so a missing or an
+#              extra finding fails the build.
+#
+#   test-only  Not reported by default, because a test references the symbol.
+#              With test references excluded it is reported with exactly this
+#              type and the message says so.
+#
+#   kept       prune-java must never report this symbol, under any type. A false
+#              positive that deletes live code is the worst failure mode this
+#              project has. The type column names the guard that keeps the
+#              symbol when explanations are requested, or ANY when the symbol is
+#              referenced by an identifier and never reaches a guard.
+#
+# Quarkus builds its CDI container at compile time from annotations. The
+# observer method LifecycleLogger#onStop carries no annotation of its own: CDI
+# finds it through the @Observes annotation on its parameter, which is why an
+# annotation on a parameter counts as an annotation on the method.
+
+unused UNUSED_CLASS      com.example.quarkussample.LegacyFormatter
+unused UNUSED_METHOD     com.example.quarkussample.GreetingService#legacyGreeting
+unused UNUSED_FIELD      com.example.quarkussample.GreetingFormatter#LEGACY_SEPARATOR
+unused UNUSED_VISIBILITY com.example.quarkussample.StatusCodes
+unused UNUSED_DEPENDENCY commons-codec:commons-codec
+
+# Only GreetingServiceTest reads GreetingSamples.
+test-only UNUSED_CLASS   com.example.quarkussample.GreetingSamples
+
+kept   annotation        com.example.quarkussample.LifecycleLogger
+kept   annotation        com.example.quarkussample.LifecycleLogger#onStop
+# Extensions are loaded, not imported; test-scoped dependencies are not analyzed.
+kept   runtime-only      io.quarkus:quarkus-rest
+kept   runtime-only      io.quarkus:quarkus-arc
+kept   dependency-scope  io.quarkus:quarkus-junit5
+kept   dependency-scope  io.rest-assured:rest-assured
+kept   dependency-scope  org.junit.jupiter:junit-jupiter
+
+kept   ANY               com.example.quarkussample.GreetingResource
+kept   ANY               com.example.quarkussample.GreetingService
+kept   ANY               com.example.quarkussample.GreetingService#suffix
+kept   ANY               com.example.quarkussample.GreetingFormatter
+kept   ANY               com.example.quarkussample.GreetingFormatter#format
+kept   ANY               com.example.quarkussample.LifecycleLogger#onStart
+kept   ANY               com.example.quarkussample.LifecycleLogger#LOG
+kept   ANY               com.example.quarkussample.StatusCodes#OK
+kept   ANY               org.apache.commons:commons-text

@@ -1,0 +1,27 @@
+name: Feature request
+description: Suggest a new rule, guard, or integration
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do that prune-java makes hard today?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you have in mind
+      description: Optional — a description of the behaviour you would like.
+
+  - type: checkboxes
+    id: constraints
+    attributes:
+      label: Design constraints
+      description: >
+        See [CONTRIBUTING.md](https://github.com/patbaumgartner/prune-java/blob/main/CONTRIBUTING.md#design-constraints).
+      options:
+        - label: This stays conservative — it cannot report a symbol that some real project reaches
+        - label: This does not add a runtime dependency to prune-core

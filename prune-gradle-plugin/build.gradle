@@ -1,0 +1,198 @@
+plugins {
+    id 'java-gradle-plugin'
+    // Adds publishToMavenLocal, which installs the plugin and its marker so other builds can
+    // resolve it from the local repository; there is no remote publication.
+    id 'maven-publish'
+    // Same source layout as the Maven modules: checkFormat runs with check, format rewrites.
+    id 'io.spring.javaformat'
+    // The same analyzers as the Maven reactor, reading the same rule files under ../config.
+    // Versions come from pluginManagement in settings.gradle.
+    id 'checkstyle'
+    id 'pmd'
+    id 'net.ltgt.errorprone'
+    id 'net.ltgt.nullaway'
+    id 'com.github.spotbugs'
+    id 'de.thetaphi.forbiddenapis'
+}
+
+import com.github.spotbugs.snom.Confidence
+import com.github.spotbugs.snom.Effort
+
+group = 'com.patbaumgartner'
+// The Maven reactor at the repository root owns the version and every tool and library
+// version. settings.gradle reads ../pom.xml once and shares what it found through gradle.ext,
+// so this build consumes prune-core at exactly the reactor's version and runs the same
+// analyzers at the same versions; nothing below names a version of its own.
+version = gradle.reactorVersion
+def pomProperty = gradle.pomProperty
+
+repositories {
+    // prune-core is built by the Maven reactor at the repository root; run
+    // "./mvnw install" there before building this plugin. Only that group is
+    // served from the local repository so everything else resolves reproducibly.
+    mavenLocal {
+        content {
+            includeGroup 'com.patbaumgartner'
+        }
+    }
+    mavenCentral()
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+    // Maven Central requires both next to the plugin jar.
+    withSourcesJar()
+    withJavadocJar()
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 17
+    // Same NullAway settings as the Maven reactor; the errorprone plugin adds the javac
+    // flags Error Prone needs on its own.
+    options.errorprone.nullaway {
+        error()
+        excludedFieldAnnotations.add('org.junit.jupiter.api.io.TempDir')
+        handleTestAssertionLibraries = true
+    }
+}
+
+nullaway {
+    annotatedPackages.add('com.patbaumgartner')
+}
+
+checkstyle {
+    toolVersion = pomProperty('checkstyle.version')
+    configFile = file('../config/checkstyle/checkstyle.xml')
+    maxWarnings = 0
+}
+
+pmd {
+    toolVersion = pomProperty('pmd.version')
+    ruleSets = []
+    ruleSetFiles = files('../config/pmd/ruleset.xml')
+    consoleOutput = true
+}
+
+spotbugs {
+    toolVersion = pomProperty('spotbugs.version')
+    // Groovy resolves Effort.MAX to the constant's own class, which the property rejects.
+    effort = Effort.valueOf('MAX')
+    reportLevel = Confidence.valueOf('LOW')
+    excludeFilter = file('../config/spotbugs/exclude.xml')
+}
+
+tasks.withType(com.github.spotbugs.snom.SpotBugsTask).configureEach {
+    reports.create('xml') { required = true }
+    reports.create('html') { required = true }
+}
+
+forbiddenApis {
+    bundledSignatures = ['jdk-unsafe', 'jdk-deprecated', 'jdk-non-portable', 'jdk-reflection']
+    signaturesFiles = files('../config/forbidden-apis/signatures.txt')
+}
+
+// spring-javaformat 0.0.48 reads Task.project while checking (spring-io/spring-javaformat#461).
+// Declaring that keeps a build with the configuration cache enabled from failing on it.
+tasks.withType(io.spring.javaformat.gradle.tasks.CheckFormat).configureEach {
+    notCompatibleWithConfigurationCache('spring-io/spring-javaformat#461: CheckFormat reads Task.project at execution time')
+}
+
+// Same promise as project.build.outputTimestamp in the Maven build: rebuilding a tag yields
+// byte-identical jars.
+tasks.withType(AbstractArchiveTask).configureEach {
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+}
+
+tasks.withType(Javadoc).configureEach {
+    options.noTimestamp = true
+    // Same policy as the Maven modules: the code carries almost no Javadoc on purpose, and
+    // what exists must be well-formed.
+    options.addStringOption('Xdoclint:all,-missing', '-quiet')
+}
+
+dependencies {
+    implementation "com.patbaumgartner:prune-core:${version}"
+    compileOnly "org.jspecify:jspecify:${pomProperty('jspecify.version')}"
+
+    errorprone "com.google.errorprone:error_prone_core:${pomProperty('errorprone.version')}"
+    errorprone "com.uber.nullaway:nullaway:${pomProperty('nullaway.version')}"
+    spotbugsPlugins "com.h3xstream.findsecbugs:findsecbugs-plugin:${pomProperty('findsecbugs.version')}"
+
+    testImplementation platform("org.junit:junit-bom:${pomProperty('junit.version')}")
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    testImplementation gradleTestKit()
+}
+
+gradlePlugin {
+    plugins {
+        pruneJava {
+            id = 'com.patbaumgartner.prune-java'
+            implementationClass = 'com.patbaumgartner.prune.gradle.PruneGradlePlugin'
+            displayName = 'Prune Java Plugin'
+            description = 'Conservative dead-code analysis for Java projects'
+        }
+    }
+}
+
+publishing {
+    // JReleaser signs and uploads whatever the release workflow stages here, next to the
+    // Maven reactor's staging directory; nothing publishes to a remote repository directly.
+    repositories {
+        maven {
+            name = 'staging'
+            url = layout.buildDirectory.dir('staging-deploy')
+        }
+    }
+    // Applies to the plugin publication and to its marker, both of which Maven Central
+    // validates for name, description, url, licence, developer, and scm.
+    publications.withType(MavenPublication).configureEach {
+        pom {
+            url = 'https://github.com/patbaumgartner/prune-java'
+            inceptionYear = '2026'
+            licenses {
+                license {
+                    name = 'Apache-2.0'
+                    url = 'https://www.apache.org/licenses/LICENSE-2.0.txt'
+                    distribution = 'repo'
+                }
+            }
+            developers {
+                developer {
+                    id = 'patbaumgartner'
+                    name = 'Patrick Baumgartner'
+                    url = 'https://github.com/patbaumgartner'
+                }
+            }
+            scm {
+                connection = 'scm:git:https://github.com/patbaumgartner/prune-java.git'
+                developerConnection = 'scm:git:https://github.com/patbaumgartner/prune-java.git'
+                url = 'https://github.com/patbaumgartner/prune-java'
+            }
+            issueManagement {
+                system = 'GitHub Issues'
+                url = 'https://github.com/patbaumgartner/prune-java/issues'
+            }
+        }
+    }
+    // The marker publication already carries the plugin's display name and description.
+    publications.matching { it.name == 'pluginMaven' }.configureEach {
+        pom {
+            name = 'prune-gradle-plugin'
+            description = 'Gradle plugin with pruneCheck and pruneFix tasks for conservative Java dead-code analysis'
+        }
+    }
+}
+
+tasks.withType(Test).configureEach {
+    useJUnitPlatform()
+
+    // SampleProjectFunctionalTest reads samples/gradle-sample, which lives outside this
+    // build. Without declaring it, Gradle would serve a cached result after the sample
+    // changed. PathSensitivity.RELATIVE keeps the cache key portable across checkouts.
+    inputs.dir(layout.projectDirectory.dir('../samples/gradle-sample'))
+            .withPropertyName('gradleSample')
+            .withPathSensitivity(PathSensitivity.RELATIVE)
+}

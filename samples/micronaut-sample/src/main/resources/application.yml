@@ -1,0 +1,8 @@
+micronaut:
+  application:
+    name: micronaut-sample
+  server:
+    port: 8080
+
+greeting:
+  prefix: Hello

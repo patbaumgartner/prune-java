@@ -1,0 +1,53 @@
+package com.patbaumgartner.prune.maven;
+
+import com.patbaumgartner.prune.core.config.AnalysisConfig;
+import com.patbaumgartner.prune.core.report.OutputFormat;
+import org.apache.maven.plugin.MojoExecutionException;
+import org.apache.maven.plugin.logging.Log;
+import org.jspecify.annotations.Nullable;
+
+import java.io.File;
+import java.util.List;
+
+final class MojoSupport {
+
+	private MojoSupport() {
+	}
+
+	static OutputFormat parseFormat(String format) throws MojoExecutionException {
+		try {
+			return OutputFormat.parse(format);
+		}
+		catch (IllegalArgumentException exception) {
+			throw new MojoExecutionException(exception.getMessage() + " (expected terminal, github, json, or sarif)",
+					exception);
+		}
+	}
+
+	static AnalysisConfig configFor(File projectDir, @Nullable List<String> excludes, @Nullable File baseline,
+			boolean testReferences, boolean explain) {
+		AnalysisConfig config = AnalysisConfig.defaultFor(projectDir.toPath())
+			.withExcludePatterns(excludes == null ? List.of() : excludes)
+			.withIncludeTestReferences(testReferences)
+			.withExplain(explain);
+		return baseline == null ? config : config.withBaseline(baseline.toPath());
+	}
+
+	// An aggregator has no sources of its own; analyzing it would repeat every module's
+	// findings.
+	static boolean isAggregator(String packaging) {
+		return "pom".equals(packaging);
+	}
+
+	static void logReport(Log log, String rendered, boolean asWarning) {
+		for (String line : rendered.lines().toList()) {
+			if (asWarning) {
+				log.warn(line);
+			}
+			else {
+				log.info(line);
+			}
+		}
+	}
+
+}

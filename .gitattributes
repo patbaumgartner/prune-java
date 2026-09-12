@@ -1,0 +1,4 @@
+# The wrapper scripts must keep their line endings whatever core.autocrlf says: a shell
+# script with CRLF fails on "bash\r", and cmd.exe misparses a batch file with bare LF.
+/mvnw text eol=lf
+/prune-gradle-plugin/gradlew text eol=lf

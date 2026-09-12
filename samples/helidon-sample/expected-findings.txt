@@ -1,0 +1,47 @@
+# Ground truth for the prune-java integration tests: a Helidon SE application.
+#
+# Format: <verdict> <type> <symbol>
+#
+#   unused     prune-java must report exactly this set of (type, symbol) pairs.
+#              SampleProjectFixtureTest asserts set equality, so a missing or an
+#              extra finding fails the build.
+#
+#   test-only  Not reported by default, because a test references the symbol.
+#              With test references excluded it is reported with exactly this
+#              type and the message says so.
+#
+#   kept       prune-java must never report this symbol, under any type. A false
+#              positive that deletes live code is the worst failure mode this
+#              project has. The type column names the guard that keeps the
+#              symbol when explanations are requested, or ANY when the symbol is
+#              referenced by an identifier and never reaches a guard.
+#
+# Helidon SE is plain Java: no annotations, handlers wired by method reference.
+# The build has a module-info.java, so no UNUSED_VISIBILITY finding is possible;
+# the module's exports decide visibility, and GreetingCodes shows the guard.
+# MetricsExporter is loaded by name from application.yaml.
+
+unused UNUSED_CLASS      com.example.helidonsample.LegacyHealthReporter
+unused UNUSED_METHOD     com.example.helidonsample.GreetService#legacyGreet
+unused UNUSED_FIELD      com.example.helidonsample.GreetService#LEGACY_PREFIX
+unused UNUSED_DEPENDENCY org.jsoup:jsoup
+
+# Only GreetServiceTest reads SampleNames.
+test-only UNUSED_CLASS   com.example.helidonsample.SampleNames
+
+kept   module-info       com.example.helidonsample.GreetingCodes
+kept   literal           com.example.helidonsample.MetricsExporter
+# Runtime and test scopes are not analyzed.
+kept   dependency-scope  io.helidon.logging:helidon-logging-jul
+kept   dependency-scope  io.helidon.webserver.testing.junit5:helidon-webserver-testing-junit5
+
+kept   ANY               com.example.helidonsample.Main
+kept   ANY               com.example.helidonsample.Main#routing
+kept   ANY               com.example.helidonsample.Main#startExporter
+kept   ANY               com.example.helidonsample.GreetService
+kept   ANY               com.example.helidonsample.GreetService#greetWorld
+kept   ANY               com.example.helidonsample.GreetService#greetNamed
+kept   ANY               com.example.helidonsample.GreetingCodes#DEFAULT_GREETING
+kept   ANY               com.example.helidonsample.GreetingCodes#DEFAULT_NAME
+kept   ANY               io.helidon.webserver:helidon-webserver
+kept   ANY               io.helidon.config:helidon-config

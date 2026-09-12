@@ -1,0 +1,46 @@
+project:
+  name: prune-java
+  description: Conservative Java dead-code analysis as a CLI, a language server, a Gradle plugin, and a Maven plugin.
+  authors:
+    - Patrick Baumgartner
+  license: Apache-2.0
+  links:
+    homepage: https://github.com/patbaumgartner/prune-java
+    bugTracker: https://github.com/patbaumgartner/prune-java/issues
+  languages:
+    java:
+      groupId: com.patbaumgartner
+      artifactId: prune-java
+      # The bytecode level of every published jar; building needs 21, see README.md.
+      version: 17
+  inceptionYear: '2026'
+
+release:
+  github:
+    overwrite: true
+    tagName: 'v{{projectVersion}}'
+    releaseName: '{{projectVersion}}'
+    changelog:
+      formatted: ALWAYS
+      preset: conventional-commits
+      contributors:
+        format: '- {{contributorName}}{{#contributorUsernameAsLink}} ({{.}}){{/contributorUsernameAsLink}}'
+
+signing:
+  active: ALWAYS
+  pgp:
+    active: ALWAYS
+    armored: true
+    mode: MEMORY
+
+deploy:
+  maven:
+    mavenCentral:
+      sonatype:
+        active: ALWAYS
+        url: https://central.sonatype.com/api/v1/publisher
+        # The Maven reactor's `deploy` and the Gradle plugin's `publish` both stage locally;
+        # JReleaser signs everything it finds here and uploads it in one deployment.
+        stagingRepositories:
+          - target/staging-deploy
+          - prune-gradle-plugin/build/staging-deploy

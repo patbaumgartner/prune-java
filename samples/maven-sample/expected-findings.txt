@@ -1,0 +1,40 @@
+# Ground truth for the prune-java integration tests.
+#
+# Format: <verdict> <type> <symbol>
+#
+#   unused     prune-java must report exactly this set of (type, symbol) pairs.
+#              SampleProjectFixtureTest asserts set equality, so a missing or an
+#              extra finding fails the build.
+#
+#   test-only  Not reported by default, because a test references the symbol.
+#              With test references excluded it is reported with exactly this
+#              type and the message says so.
+#
+#   kept       prune-java must never report this symbol, under any type. A false
+#              positive that deletes live code is the worst failure mode this
+#              project has. The type column names the guard that keeps the
+#              symbol when explanations are requested, or ANY when the symbol is
+#              referenced by an identifier and never reaches a guard.
+#
+# Only unambiguously dead symbols are listed as unused. Public API that merely
+# has no caller inside this project is listed as kept, because conservative
+# analysis cannot prove an external caller does not exist.
+
+unused UNUSED_CLASS      com.example.mavensample.LegacyReportBuilder
+unused UNUSED_CLASS      com.example.mavensample.PriceFormatter.LegacyRounding
+unused UNUSED_METHOD     com.example.mavensample.PriceFormatter#roundToNearestUnit
+unused UNUSED_FIELD      com.example.mavensample.PriceFormatter#LEGACY_SUFFIX
+unused UNUSED_VISIBILITY com.example.mavensample.CurrencyCodes
+unused UNUSED_DEPENDENCY org.apache.commons:commons-lang3
+
+kept   ANY               com.example.mavensample.App
+kept   ANY               com.example.mavensample.PriceFormatter
+kept   ANY               com.example.mavensample.PriceFormatter#format
+kept   ANY               com.example.mavensample.CurrencyCodes#DEFAULT
+kept   ANY               com.google.code.gson:gson
+kept   dependency-scope  org.junit.jupiter:junit-jupiter
+
+# Referenced only from src/test/java. AnalysisConfig.defaultFor sets
+# includeTestReferences=true, so a test-only caller still counts as a use, and a
+# public method is never a candidate anyway.
+kept   ANY               com.example.mavensample.PriceFormatter#describe
