@@ -1,0 +1,31 @@
+# Ground truth for the prune-java integration tests.
+#
+# Format: <verdict> <type> <symbol>
+#
+#   unused  prune-java must report exactly this set of (type, symbol) pairs.
+#           SampleProjectFixtureTest asserts set equality, so a missing or an
+#           extra finding fails the build.
+#
+#   kept    prune-java must never report this symbol, under any type. A false
+#           positive that deletes live code is the worst failure mode this
+#           project has.
+#
+# Only unambiguously dead symbols are listed as unused. Public API that merely
+# has no caller inside this project is listed as kept, because conservative
+# analysis cannot prove an external caller does not exist.
+
+unused UNUSED_CLASS      com.example.gradlesample.ObsoleteStockExporter
+unused UNUSED_METHOD     com.example.gradlesample.StockLevel#legacyExportName
+unused UNUSED_VISIBILITY com.example.gradlesample.WarehouseCodes
+unused UNUSED_DEPENDENCY commons-io:commons-io
+
+kept   ANY               com.example.gradlesample.InventoryApp
+kept   ANY               com.example.gradlesample.StockLevel
+kept   ANY               com.example.gradlesample.StockLevel#available
+kept   ANY               com.example.gradlesample.StockLevel#REORDER_THRESHOLD
+kept   ANY               com.example.gradlesample.WarehouseCodes#DEFAULT
+kept   ANY               org.slf4j:slf4j-api
+
+# Referenced only from src/test/java. AnalysisConfig.defaultFor sets
+# includeTestReferences=true, so a test-only caller still counts as a use.
+kept   ANY               com.example.gradlesample.StockLevel#label

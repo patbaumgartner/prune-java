@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.patbaumgartner</groupId>
+        <artifactId>prune-java</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>prune-core</artifactId>
+
+    <name>prune-core</name>
+    <description>Shared analysis configuration, report model, and analyzer abstractions</description>
+    <!-- Explicit, because the flattened POM would otherwise append the module name to the parent
+    URL. -->
+    <url>https://github.com/patbaumgartner/prune-java</url>
+
+    <!-- prune-core has no runtime dependencies on purpose. Do not add any. -->
+</project>

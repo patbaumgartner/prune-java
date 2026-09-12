@@ -1,0 +1,60 @@
+name: Bug report
+description: A finding is wrong, a fix broke code, or an integration misbehaves
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For a security problem, please do **not** open an issue — see
+        [SECURITY.md](https://github.com/patbaumgartner/prune-java/blob/main/SECURITY.md).
+
+        A reported symbol that is actually reachable is the most important bug this
+        project can have. Please report it even if it looks exotic.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What did you expect, and what did you get instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: source
+    attributes:
+      label: Minimal Java source
+      description: >
+        The smallest file (or pair of files) that reproduces the wrong finding or the
+        broken rewrite. This is almost always what we need. For a dependency finding,
+        the relevant part of the pom.xml or build.gradle instead.
+      render: java
+
+  - type: textarea
+    id: report
+    attributes:
+      label: Report
+      description: >
+        The output of `check --format=json` (CLI), or the plugin log lines starting
+        with `prune-java`, trimmed to the affected finding.
+      render: shell
+
+  - type: dropdown
+    id: integration
+    attributes:
+      label: Integration
+      options:
+        - CLI
+        - Maven plugin
+        - Gradle plugin
+        - Language server
+    validations:
+      required: true
+
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: prune-java, JDK, and Maven or Gradle.
+      placeholder: prune-java 0.1.0, java 21, maven 3.9.16
+    validations:
+      required: true

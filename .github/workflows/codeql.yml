@@ -1,0 +1,70 @@
+name: CodeQL
+
+# Static security analysis via GitHub CodeQL: the Java sources of both builds, plus the
+# workflows themselves. Runs on push/PR to main and weekly to catch newly-published queries.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '0 9 * * 1'
+
+# Read-only by default so that a step added to a future job cannot quietly inherit a write
+# scope; the one job that needs to write asks for it below.
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write   # upload the SARIF results
+      actions: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Java is built by hand below so that the Gradle plugin, which the Maven reactor
+          # does not build, is traced as well. Workflows need no build.
+          - language: java
+            build-mode: manual
+          - language: actions
+            build-mode: none
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up JDK 21
+        if: matrix.language == 'java'
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4.38.0
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+          queries: security-extended
+
+      # install, not compile: the Gradle plugin resolves prune-core from the local repository.
+      - name: Build for CodeQL
+        if: matrix.language == 'java'
+        run: |
+          ./mvnw -B -ntp -DskipTests -Dinvoker.skip=true install
+          (cd prune-gradle-plugin && ./gradlew compileJava \
+            -Dorg.gradle.java.installations.auto-detect=false \
+            -Dorg.gradle.java.installations.auto-download=false)
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4.38.0
+        with:
+          category: /language:${{ matrix.language }}
