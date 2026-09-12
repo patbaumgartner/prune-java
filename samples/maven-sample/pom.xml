@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.example</groupId>
+    <artifactId>maven-sample</artifactId>
+    <version>1.0.0</version>
+
+    <name>maven-sample</name>
+    <description>Fixture project for prune-java integration tests. Contains deliberate dead code.</description>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <maven.compiler.release>17</maven.compiler.release>
+    </properties>
+
+    <dependencies>
+        <!-- Used: imported by App. -->
+        <dependency>
+            <groupId>com.google.code.gson</groupId>
+            <artifactId>gson</artifactId>
+            <version>2.11.0</version>
+        </dependency>
+
+        <!-- Deliberately unused: never imported. See expected-findings.txt. -->
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+            <version>3.18.0</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>5.11.0</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

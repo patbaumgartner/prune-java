@@ -1,0 +1,64 @@
+plugins {
+    id 'java-gradle-plugin'
+}
+
+group = 'com.patbaumgartner'
+// The Maven reactor at the repository root owns the version; this build consumes
+// prune-core at exactly that version, so reading it from the pom keeps the two builds
+// from drifting apart.
+version = new groovy.xml.XmlSlurper(false, false).parse(file('../pom.xml')).version.text()
+if (!version) {
+    throw new GradleException('Could not read the project version from ../pom.xml')
+}
+
+repositories {
+    // prune-core is built by the Maven reactor at the repository root; run
+    // "./mvnw install" there before building this plugin. Only that group is
+    // served from the local repository so everything else resolves reproducibly.
+    mavenLocal {
+        content {
+            includeGroup 'com.patbaumgartner'
+        }
+    }
+    mavenCentral()
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 17
+}
+
+dependencies {
+    implementation "com.patbaumgartner:prune-core:${version}"
+
+    testImplementation platform('org.junit:junit-bom:5.11.0')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    testImplementation gradleTestKit()
+}
+
+gradlePlugin {
+    plugins {
+        pruneJava {
+            id = 'com.patbaumgartner.prune-java'
+            implementationClass = 'com.patbaumgartner.prune.gradle.PruneGradlePlugin'
+            displayName = 'Prune Java Plugin'
+            description = 'Conservative dead-code analysis for Java projects'
+        }
+    }
+}
+
+tasks.withType(Test).configureEach {
+    useJUnitPlatform()
+
+    // SampleProjectFunctionalTest reads samples/gradle-sample, which lives outside this
+    // build. Without declaring it, Gradle would serve a cached result after the sample
+    // changed. PathSensitivity.RELATIVE keeps the cache key portable across checkouts.
+    inputs.dir(layout.projectDirectory.dir('../samples/gradle-sample'))
+            .withPropertyName('gradleSample')
+            .withPathSensitivity(PathSensitivity.RELATIVE)
+}
