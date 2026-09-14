@@ -223,6 +223,7 @@ Output modes:
 - `terminal` (default local output): one `- [SEVERITY] path[:line[:column]] :: message` line per finding, then a `Summary:` line; with `--explain`, `+ [KEPT] ... [guard]` lines first
 - `github` (default with `--ci`): `::warning file=...,line=...,col=...::message` workflow commands; kept symbols are not annotations and are omitted
 - `json` (machine-readable output): `{"summary","conservativeMode","issues":[{type,severity,symbol,location,message,autoFixable}],"kept":[{type,symbol,location,guard,message}]}` — `kept` is always present and empty unless `--explain` is given
+- `sarif` (GitHub code scanning): one [SARIF 2.1.0](https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html) run with a rule per issue type, a result per finding whose `partialFingerprints.symbol` keeps an alert stable when its line moves, `level` mapped `INFO→note`, `WARNING→warning`, `ERROR→error`, paths as `%SRCROOT%`-relative URIs, and the summary in the run's `properties`; kept symbols are omitted like in `github`. Upload it with `github/codeql-action/upload-sarif`
 
 Exit codes:
 
@@ -277,7 +278,7 @@ plugins {
 
 pruneCheck {
     ignoreFailures = false        // default; true logs the findings without failing the build
-    format = 'terminal'           // terminal, github, or json
+    format = 'terminal'           // terminal, github, json, or sarif
     excludes = ['**/generated/**'] // globs relative to the project directory, default empty
     baseline = layout.projectDirectory.file('prune-baseline.txt')  // default
     testReferences = true         // default; false reports code that only tests reach

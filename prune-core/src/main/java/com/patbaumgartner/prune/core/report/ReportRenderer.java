@@ -1,5 +1,7 @@
 package com.patbaumgartner.prune.core.report;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.stream.Collectors;
 
 public final class ReportRenderer {
@@ -9,6 +11,7 @@ public final class ReportRenderer {
 			case TERMINAL -> renderTerminal(report);
 			case GITHUB_ANNOTATION -> renderGithubAnnotation(report);
 			case JSON -> renderJson(report);
+			case SARIF -> renderSarif(report);
 		};
 	}
 
@@ -75,6 +78,79 @@ public final class ReportRenderer {
 
 		return "{\"summary\":\"" + escapeJson(report.summary()) + "\",\"conservativeMode\":" + report.conservativeMode()
 				+ ",\"issues\":[" + issuesJson + "],\"kept\":[" + keptJson + "]}";
+	}
+
+	// SARIF 2.1.0 as GitHub code scanning ingests it: one rule per issue type, one
+	// result per issue anchored at the checkout root, the symbol as a fingerprint so an
+	// alert survives the line moving. Kept symbols are not results and are omitted.
+	private String renderSarif(AnalysisReport report) {
+		String rules = Arrays.stream(IssueType.values())
+			.map(type -> "{\"id\":\"" + type.name() + "\",\"shortDescription\":{\"text\":\"" + describe(type) + "\"}}")
+			.collect(Collectors.joining(","));
+		String results = report.issues()
+			.stream()
+			.map(issue -> "{\"ruleId\":\"" + issue.type().name() + "\",\"level\":\"" + sarifLevel(issue.severity())
+					+ "\",\"message\":{\"text\":\"" + escapeJson(issue.message()) + "\"},\"locations\":["
+					+ sarifLocation(SourceLocation.parse(issue.location())) + "],\"partialFingerprints\":{\"symbol\":\""
+					+ escapeJson(issue.symbol()) + "\"},\"properties\":{\"autoFixable\":" + issue.autoFixable() + "}}")
+			.collect(Collectors.joining(","));
+		return "{\"$schema\":\"https://json.schemastore.org/sarif-2.1.0.json\",\"version\":\"2.1.0\",\"runs\":[{"
+				+ "\"tool\":{\"driver\":{\"name\":\"prune-java\","
+				+ "\"informationUri\":\"https://github.com/patbaumgartner/prune-java\",\"rules\":[" + rules + "]}},"
+				+ "\"results\":[" + results + "],\"properties\":{\"summary\":\"" + escapeJson(report.summary())
+				+ "\",\"conservativeMode\":" + report.conservativeMode() + "}}]}";
+	}
+
+	private static String describe(IssueType type) {
+		return switch (type) {
+			case UNUSED_CLASS -> "A package-private or non-public nested type is never referenced.";
+			case UNUSED_METHOD -> "A private method is never referenced.";
+			case UNUSED_FIELD -> "A private field is never referenced.";
+			case UNUSED_VISIBILITY -> "A public class is only used from its own package.";
+			case UNUSED_DEPENDENCY -> "A declared dependency is never imported.";
+		};
+	}
+
+	private static String sarifLevel(Severity severity) {
+		return switch (severity) {
+			case INFO -> "note";
+			case WARNING -> "warning";
+			case ERROR -> "error";
+		};
+	}
+
+	private String sarifLocation(SourceLocation location) {
+		StringBuilder region = new StringBuilder();
+		if (location.hasLine()) {
+			region.append(",\"region\":{\"startLine\":").append(location.line());
+			if (location.hasColumn()) {
+				region.append(",\"startColumn\":").append(location.column());
+			}
+			region.append('}');
+		}
+		return "{\"physicalLocation\":{\"artifactLocation\":{\"uri\":\"" + escapeJson(relativeUri(location.path()))
+				+ "\",\"uriBaseId\":\"%SRCROOT%\"}" + region + "}}";
+	}
+
+	// A root-relative path as a URI reference: separators normalized, every segment
+	// percent-encoded except the unreserved characters, so a space, a '#', or a '%' in a
+	// file name cannot change what the location points at.
+	private static String relativeUri(String path) {
+		byte[] bytes = path.replace('\\', '/').getBytes(StandardCharsets.UTF_8);
+		StringBuilder uri = new StringBuilder(bytes.length);
+		for (byte b : bytes) {
+			char c = (char) (b & 0xff);
+			if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-' || c == '.'
+					|| c == '_' || c == '~' || c == '/') {
+				uri.append(c);
+			}
+			else {
+				uri.append('%')
+					.append(Character.toUpperCase(Character.forDigit(c >> 4, 16)))
+					.append(Character.toUpperCase(Character.forDigit(c & 0xf, 16)));
+			}
+		}
+		return uri.toString();
 	}
 
 	private String escapeJson(String value) {

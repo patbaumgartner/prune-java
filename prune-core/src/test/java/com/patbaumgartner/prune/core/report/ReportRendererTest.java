@@ -5,6 +5,8 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ReportRendererTest {
 
@@ -19,8 +21,7 @@ class ReportRendererTest {
 	}
 
 	// Skipped files, baseline suppressions, and applied autofixes are only reported in
-	// the
-	// summary, and matter most when no issue is left to list.
+	// the summary, and matter most when no issue is left to list.
 	@Test
 	void emptyTerminalReportKeepsTheSummaryAndEscapesIt() {
 		var renderer = new ReportRenderer();
@@ -42,6 +43,90 @@ class ReportRendererTest {
 		var output = renderer.render(report, OutputFormat.JSON);
 
 		assertEquals("{\"summary\":\"none\",\"conservativeMode\":true,\"issues\":[],\"kept\":[]}", output);
+	}
+
+	@Test
+	void rendersEmptySarifReportWithEveryRuleAndTheSummary() {
+		var renderer = new ReportRenderer();
+		var report = new AnalysisReport(List.of(), "none", true);
+
+		var output = renderer.render(report, OutputFormat.SARIF);
+
+		assertEquals("{\"$schema\":\"https://json.schemastore.org/sarif-2.1.0.json\",\"version\":\"2.1.0\","
+				+ "\"runs\":[{\"tool\":{\"driver\":{\"name\":\"prune-java\","
+				+ "\"informationUri\":\"https://github.com/patbaumgartner/prune-java\",\"rules\":["
+				+ "{\"id\":\"UNUSED_CLASS\",\"shortDescription\":{\"text\":\"A package-private or non-public nested type is never referenced.\"}},"
+				+ "{\"id\":\"UNUSED_METHOD\",\"shortDescription\":{\"text\":\"A private method is never referenced.\"}},"
+				+ "{\"id\":\"UNUSED_FIELD\",\"shortDescription\":{\"text\":\"A private field is never referenced.\"}},"
+				+ "{\"id\":\"UNUSED_VISIBILITY\",\"shortDescription\":{\"text\":\"A public class is only used from its own package.\"}},"
+				+ "{\"id\":\"UNUSED_DEPENDENCY\",\"shortDescription\":{\"text\":\"A declared dependency is never imported.\"}}"
+				+ "]}},\"results\":[],\"properties\":{\"summary\":\"none\",\"conservativeMode\":true}}]}", output);
+	}
+
+	@Test
+	void sarifResultsCarryRuleLevelLocationFingerprintAndAutofixability() {
+		var renderer = new ReportRenderer();
+		var method = new AnalysisIssue(IssueType.UNUSED_METHOD, Severity.WARNING, "a.B#m",
+				"src/main/java/a/B.java:4:18", "Private method m is never used", true);
+		var dependency = new AnalysisIssue(IssueType.UNUSED_DEPENDENCY, Severity.ERROR, "org.x:y", "pom.xml:31",
+				"Dependency org.x:y is declared but never imported", true);
+		var type = new AnalysisIssue(IssueType.UNUSED_VISIBILITY, Severity.INFO, "a.C", "src/main/java/a/C.java",
+				"Class C is only used from its own package", false);
+		var report = new AnalysisReport(List.of(method, dependency, type), "3 issue(s)", true);
+
+		var output = renderer.render(report, OutputFormat.SARIF);
+
+		var results = output.substring(output.indexOf("\"results\":"), output.indexOf(",\"properties\":{\"summary\""));
+		assertEquals("\"results\":["
+				+ "{\"ruleId\":\"UNUSED_METHOD\",\"level\":\"warning\",\"message\":{\"text\":\"Private method m is never used\"},"
+				+ "\"locations\":[{\"physicalLocation\":{\"artifactLocation\":{\"uri\":\"src/main/java/a/B.java\",\"uriBaseId\":\"%SRCROOT%\"},"
+				+ "\"region\":{\"startLine\":4,\"startColumn\":18}}}],"
+				+ "\"partialFingerprints\":{\"symbol\":\"a.B#m\"},\"properties\":{\"autoFixable\":true}},"
+				+ "{\"ruleId\":\"UNUSED_DEPENDENCY\",\"level\":\"error\",\"message\":{\"text\":\"Dependency org.x:y is declared but never imported\"},"
+				+ "\"locations\":[{\"physicalLocation\":{\"artifactLocation\":{\"uri\":\"pom.xml\",\"uriBaseId\":\"%SRCROOT%\"},"
+				+ "\"region\":{\"startLine\":31}}}],"
+				+ "\"partialFingerprints\":{\"symbol\":\"org.x:y\"},\"properties\":{\"autoFixable\":true}},"
+				+ "{\"ruleId\":\"UNUSED_VISIBILITY\",\"level\":\"note\",\"message\":{\"text\":\"Class C is only used from its own package\"},"
+				+ "\"locations\":[{\"physicalLocation\":{\"artifactLocation\":{\"uri\":\"src/main/java/a/C.java\",\"uriBaseId\":\"%SRCROOT%\"}}}],"
+				+ "\"partialFingerprints\":{\"symbol\":\"a.C\"},\"properties\":{\"autoFixable\":false}}" + "]",
+				results);
+	}
+
+	@Test
+	void sarifOutputEscapesJsonAndEncodesEveryPathAsARelativeUri() {
+		var renderer = new ReportRenderer();
+		var spaced = new AnalysisIssue(IssueType.UNUSED_CLASS, Severity.WARNING, "a.B\"", "src/my app/a b/C#1.java:2:1",
+				"Class \"B\" \\ is\nnever referenced", false);
+		var windows = new AnalysisIssue(IssueType.UNUSED_CLASS, Severity.WARNING, "a.D",
+				"src\\main\\java\\a\\D%.java:3", "Class D is never referenced", false);
+		var report = new AnalysisReport(List.of(spaced, windows), "summary \"quoted\"\u0001", true);
+
+		var output = renderer.render(report, OutputFormat.SARIF);
+
+		assertTrue(output.contains("\"message\":{\"text\":\"Class \\\"B\\\" \\\\ is\\nnever referenced\"}"), output);
+		assertTrue(output.contains("\"uri\":\"src/my%20app/a%20b/C%231.java\",\"uriBaseId\":\"%SRCROOT%\"},"
+				+ "\"region\":{\"startLine\":2,\"startColumn\":1}"), output);
+		assertTrue(output.contains(
+				"\"uri\":\"src/main/java/a/D%25.java\",\"uriBaseId\":\"%SRCROOT%\"}," + "\"region\":{\"startLine\":3}"),
+				output);
+		assertTrue(output.contains("\"partialFingerprints\":{\"symbol\":\"a.B\\\"\"}"), output);
+		assertTrue(
+				output.endsWith(
+						"\"properties\":{\"summary\":\"summary \\\"quoted\\\"\\u0001\",\"conservativeMode\":true}}]}"),
+				output);
+	}
+
+	@Test
+	void sarifOutputOmitsKeptSymbolsLikeTheGithubFormat() {
+		var renderer = new ReportRenderer();
+		var kept = new KeptSymbol(IssueType.UNUSED_METHOD, "a.B#m", "src/main/java/a/B.java:4:18", "annotation",
+				"Private method m is kept: it carries an annotation");
+		var report = new AnalysisReport(List.of(), "none", true, List.of(kept));
+
+		var output = renderer.render(report, OutputFormat.SARIF);
+
+		assertFalse(output.contains("annotation"), output);
+		assertTrue(output.contains("\"results\":[]"), output);
 	}
 
 	@Test

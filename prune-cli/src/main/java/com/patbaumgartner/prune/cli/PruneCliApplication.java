@@ -30,7 +30,7 @@ public final class PruneCliApplication {
 	static final int EXIT_FAILURE = 3;
 
 	private static final String USAGE = "Usage: prune-java <check|fix|baseline> [--root=<dir>] [--exclude=<glob>]... [--baseline=<file>]"
-			+ " [--no-test-references] [--explain] [--ci] [--format=terminal|github|json]";
+			+ " [--no-test-references] [--explain] [--ci] [--format=terminal|github|json|sarif]";
 
 	private final UnusedCodeAnalyzer analyzer;
 
@@ -183,8 +183,7 @@ public final class PruneCliApplication {
 	}
 
 	// Only ASCII letters fold, so neither the default locale nor a Kelvin sign or a
-	// dotless
-	// i can spell a command.
+	// dotless i can spell a command.
 	private static String asciiLowerCase(String value) {
 		StringBuilder folded = new StringBuilder(value.length());
 		for (int i = 0; i < value.length(); i++) {

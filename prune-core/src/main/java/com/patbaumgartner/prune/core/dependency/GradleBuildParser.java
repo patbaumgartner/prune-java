@@ -9,7 +9,8 @@ import java.util.regex.Pattern;
 
 public final class GradleBuildParser {
 
-	private static final String CONFIGURATIONS = "(implementation|api|compileOnly|compileOnlyApi|compile)";
+	private static final String CONFIGURATIONS = "(implementation|api|compileOnly|compileOnlyApi|compile|runtimeOnly"
+			+ "|testImplementation|testCompileOnly|testRuntimeOnly|annotationProcessor|testAnnotationProcessor)";
 
 	private static final Pattern STRING_NOTATION = Pattern
 		.compile("^\\s*" + CONFIGURATIONS + "\\s*\\(?\\s*(['\"])([^'\"]+)\\2\\s*\\)?\\s*(\\{.*)?$");
@@ -80,8 +81,17 @@ public final class GradleBuildParser {
 				endLine);
 	}
 
+	// The Maven scope with the same meaning, so that DeclaredDependency.isAnalyzableScope
+	// and the dependency-scope explanation read the same for both build tools. Processor
+	// configurations have no Maven counterpart and keep their own name.
 	private static String scopeOf(String configuration) {
-		return configuration.startsWith("compileOnly") ? "provided" : "compile";
+		return switch (configuration) {
+			case "compileOnly", "compileOnlyApi" -> "provided";
+			case "runtimeOnly" -> "runtime";
+			case "testImplementation", "testCompileOnly", "testRuntimeOnly" -> "test";
+			case "implementation", "api", "compile" -> "compile";
+			default -> configuration;
+		};
 	}
 
 	// Comments become spaces so line numbers survive; string literals are left intact.

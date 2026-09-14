@@ -148,7 +148,7 @@ class DependencyParsersTest {
 	}
 
 	@Test
-	void gradleParserReadsStringAndMapNotationsForCompileConfigurationsOnly() {
+	void gradleParserReadsStringAndMapNotationsForEveryConfigurationWithAScope() {
 		var dependencies = GradleBuildParser.parse("build.gradle", """
 				dependencies {
 				    implementation 'org.slf4j:slf4j-api:2.0.16'
@@ -168,13 +168,39 @@ class DependencyParsersTest {
 				}
 				""");
 
-		assertEquals(List.of("org.slf4j:slf4j-api", "com.google.guava:guava", "org.projectlombok:lombok",
-				"org.example:lib", "org.example:with-block"),
+		assertEquals(
+				List.of("org.slf4j:slf4j-api", "com.google.guava:guava", "org.projectlombok:lombok", "org.example:lib",
+						"com.h2database:h2", "org.junit.jupiter:junit-jupiter", "org.example:with-block"),
 				dependencies.stream().map(DeclaredDependency::coordinates).toList());
 		assertEquals(2, dependencies.get(0).startLine());
-		assertEquals("provided", dependencies.get(2).scope());
+		assertEquals(List.of("compile", "compile", "provided", "compile", "runtime", "test", "compile"),
+				dependencies.stream().map(DeclaredDependency::scope).toList());
 		assertEquals("sources", dependencies.get(3).classifier());
 		assertFalse(dependencies.get(3).isPlainJar());
+	}
+
+	@Test
+	void gradleParserMapsEveryNonMainConfigurationToAScopeThatIsNeverAnalyzed() {
+		var dependencies = GradleBuildParser.parse("build.gradle.kts", """
+				dependencies {
+				    testImplementation("org.junit.jupiter:junit-jupiter:5.11.0")
+				    testCompileOnly("org.example:test-only:1.0")
+				    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+				    runtimeOnly("ch.qos.logback:logback-classic:1.5.6")
+				    annotationProcessor("org.projectlombok:lombok:1.18.34")
+				    testAnnotationProcessor(group = "io.micronaut", name = "micronaut-inject-java")
+				}
+				""");
+
+		assertEquals(List.of("test", "test", "test", "runtime", "annotationProcessor", "testAnnotationProcessor"),
+				dependencies.stream().map(DeclaredDependency::scope).toList());
+		for (var dependency : dependencies) {
+			assertFalse(dependency.isAnalyzableScope(), dependency.coordinates());
+			assertEquals("dependency-scope", DependencyUsage.keepReason(dependency).orElseThrow().guard(),
+					dependency.coordinates());
+		}
+		assertEquals("it is declared in scope annotationProcessor, which is not analyzed",
+				DependencyUsage.keepReason(dependencies.get(4)).orElseThrow().message());
 	}
 
 	@Test

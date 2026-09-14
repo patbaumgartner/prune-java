@@ -19,7 +19,7 @@ final class MojoSupport {
 			return OutputFormat.parse(format);
 		}
 		catch (IllegalArgumentException exception) {
-			throw new MojoExecutionException(exception.getMessage() + " (expected terminal, github, or json)",
+			throw new MojoExecutionException(exception.getMessage() + " (expected terminal, github, json, or sarif)",
 					exception);
 		}
 	}

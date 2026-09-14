@@ -257,8 +257,8 @@ class PruneCliApplicationTest {
 
 		assertEquals(0, exitCode);
 		assertEquals("Usage: prune-java <check|fix|baseline> [--root=<dir>] [--exclude=<glob>]... [--baseline=<file>]"
-				+ " [--no-test-references] [--explain] [--ci] [--format=terminal|github|json]" + System.lineSeparator(),
-				stdout.toString(StandardCharsets.UTF_8));
+				+ " [--no-test-references] [--explain] [--ci] [--format=terminal|github|json|sarif]"
+				+ System.lineSeparator(), stdout.toString(StandardCharsets.UTF_8));
 	}
 
 	@Test
@@ -394,6 +394,19 @@ class PruneCliApplicationTest {
 		app.run(new String[] { "check", "--ci", "--format=json" }, printer(stdout), discard());
 
 		assertTrue(stdout.toString(StandardCharsets.UTF_8).startsWith("{\"summary\":"));
+	}
+
+	@Test
+	void sarifFormatWritesOneSarifDocumentToStdout() {
+		var app = new PruneCliApplication(config -> emptyReport(), new ReportRenderer());
+		var stdout = new ByteArrayOutputStream();
+
+		var exitCode = app.run(new String[] { "check", "--ci", "--format=sarif" }, printer(stdout), discard());
+
+		assertEquals(0, exitCode);
+		var output = stdout.toString(StandardCharsets.UTF_8);
+		assertTrue(output.startsWith("{\"$schema\":\"https://json.schemastore.org/sarif-2.1.0.json\""), output);
+		assertTrue(output.endsWith("}]}" + System.lineSeparator()), output);
 	}
 
 	@Test

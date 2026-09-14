@@ -19,7 +19,8 @@ final class TaskSupport {
 			return OutputFormat.parse(format);
 		}
 		catch (IllegalArgumentException exception) {
-			throw new GradleException(exception.getMessage() + " (expected terminal, github, or json)", exception);
+			throw new GradleException(exception.getMessage() + " (expected terminal, github, json, or sarif)",
+					exception);
 		}
 	}
 

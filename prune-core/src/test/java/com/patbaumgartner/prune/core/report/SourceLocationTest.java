@@ -54,6 +54,7 @@ class SourceLocationTest {
 		assertEquals(OutputFormat.TERMINAL, OutputFormat.parse("terminal"));
 		assertEquals(OutputFormat.GITHUB_ANNOTATION, OutputFormat.parse("github"));
 		assertEquals(OutputFormat.JSON, OutputFormat.parse("json"));
+		assertEquals(OutputFormat.SARIF, OutputFormat.parse("sarif"));
 		var error = assertThrows(IllegalArgumentException.class, () -> OutputFormat.parse("xml"));
 		assertEquals("Unsupported format: xml", error.getMessage());
 	}

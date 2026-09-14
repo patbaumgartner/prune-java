@@ -73,13 +73,29 @@ class PruneMojoTest {
 	}
 
 	@Test
+	void checkMojoLogsSarifAsOneDocument() throws IOException, MojoExecutionException, MojoFailureException {
+		write("src/main/java/com/example/Dead.java", DEAD);
+		var mojo = checkMojo(false, "sarif");
+		var log = new CapturingLog();
+		mojo.setLog(log);
+
+		mojo.execute();
+
+		assertEquals(1, log.warnings.size());
+		assertTrue(log.warnings.get(0).startsWith("{\"$schema\":\"https://json.schemastore.org/sarif-2.1.0.json\""),
+				log.warnings.get(0));
+		assertTrue(log.warnings.get(0).contains("\"partialFingerprints\":{\"symbol\":\"com.example.Dead\"}"),
+				log.warnings.get(0));
+	}
+
+	@Test
 	void checkMojoRejectsAnUnknownFormatBeforeAnalyzing() {
 		var mojo = checkMojo(true, "xml");
 		mojo.setLog(new CapturingLog());
 
 		var failure = assertThrows(MojoExecutionException.class, mojo::execute);
 
-		assertEquals("Unsupported format: xml (expected terminal, github, or json)", failure.getMessage());
+		assertEquals("Unsupported format: xml (expected terminal, github, json, or sarif)", failure.getMessage());
 	}
 
 	@Test

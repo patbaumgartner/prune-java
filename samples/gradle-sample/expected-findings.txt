@@ -34,6 +34,9 @@ kept   ANY               com.example.gradlesample.StockLevel#available
 kept   ANY               com.example.gradlesample.StockLevel#REORDER_THRESHOLD
 kept   ANY               com.example.gradlesample.WarehouseCodes#DEFAULT
 kept   ANY               org.slf4j:slf4j-api
+# Test configurations are declared but never analyzed, like Maven's test scope.
+kept   dependency-scope  org.junit.jupiter:junit-jupiter
+kept   dependency-scope  org.junit.platform:junit-platform-launcher
 
 # Referenced only from src/test/java. AnalysisConfig.defaultFor sets
 # includeTestReferences=true, so a test-only caller still counts as a use, and a

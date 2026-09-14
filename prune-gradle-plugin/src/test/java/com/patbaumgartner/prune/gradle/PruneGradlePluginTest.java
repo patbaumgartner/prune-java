@@ -108,7 +108,7 @@ class PruneGradlePluginTest {
 			.buildAndFail();
 
 		assertEquals(TaskOutcome.FAILED, result.task(":pruneCheck").getOutcome());
-		assertTrue(result.getOutput().contains("Unsupported format: xml (expected terminal, github, or json)"),
+		assertTrue(result.getOutput().contains("Unsupported format: xml (expected terminal, github, json, or sarif)"),
 				result.getOutput());
 	}
 

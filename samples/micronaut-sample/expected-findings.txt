@@ -18,7 +18,8 @@
 #
 # Micronaut generates its bean definitions at compile time from annotations,
 # so a @Controller, @Factory, or @Singleton class is never named in Java. The
-# annotationProcessor and runtimeOnly configurations are not analyzed at all.
+# annotationProcessor, runtimeOnly, and testImplementation configurations are
+# declared but never analyzed; explanations name them as dependency-scope.
 
 unused UNUSED_CLASS      com.example.micronautsample.LegacyExporter
 unused UNUSED_METHOD     com.example.micronautsample.GreetingService#legacyGreeting
@@ -35,6 +36,11 @@ kept   annotation        com.example.micronautsample.StartupLogger
 # Micronaut modules are loaded, not imported.
 kept   runtime-only      io.micronaut:micronaut-http-server-netty
 kept   runtime-only      io.micronaut.serde:micronaut-serde-jackson
+kept   dependency-scope  io.micronaut:micronaut-http-validation
+kept   dependency-scope  io.micronaut.serde:micronaut-serde-processor
+kept   dependency-scope  ch.qos.logback:logback-classic
+kept   dependency-scope  io.micronaut:micronaut-http-client
+kept   dependency-scope  io.micronaut.test:micronaut-test-junit5
 
 kept   ANY               com.example.micronautsample.Application
 kept   ANY               com.example.micronautsample.Greeting
