@@ -48,6 +48,11 @@ jobs:
       - name: Build and verify the Maven reactor
         run: ./mvnw -B -ntp install
 
+      # Dogfood: the plugin that was just installed analyzes the reactor that built it and
+      # fails the job on any finding.
+      - name: Analyze the reactor with its own Maven plugin
+        run: ./mvnw -B -ntp com.patbaumgartner:prune-maven-plugin:check
+
       # setup-gradle validates the wrapper jar too, but Scorecard's Binary-Artifacts check only
       # accepts this explicit step as proof that the committed jar is the official one.
       - uses: gradle/actions/wrapper-validation@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
@@ -61,6 +66,15 @@ jobs:
           ./gradlew build --stacktrace
           -Dorg.gradle.java.installations.auto-detect=false
           -Dorg.gradle.java.installations.auto-download=false
+        working-directory: prune-gradle-plugin
+
+      # Dogfood: the plugin that was just built analyzes its own build through the init
+      # script, which resolves it from the local repository publishToMavenLocal fills.
+      - name: Analyze the Gradle plugin with itself
+        run: |
+          flags=(-Dorg.gradle.java.installations.auto-detect=false -Dorg.gradle.java.installations.auto-download=false)
+          ./gradlew publishToMavenLocal -x test "${flags[@]}"
+          ./gradlew -I prune-java.init.gradle pruneCheck "${flags[@]}"
         working-directory: prune-gradle-plugin
 
       - name: Upload test reports
@@ -107,6 +121,9 @@ jobs:
 
       - name: Build and verify with Maven 4
         run: mvn -v && mvn -B -ntp install
+
+      - name: Analyze the reactor with its own Maven plugin
+        run: mvn -B -ntp com.patbaumgartner:prune-maven-plugin:check
 
       - name: Upload test reports
         if: always()

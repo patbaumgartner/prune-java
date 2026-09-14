@@ -357,6 +357,17 @@
                         <verifyFail>stop</verifyFail>
                     </configuration>
                 </plugin>
+                <!--
+          The version the reactor's own dead-code check runs with, so that after `install`
+          `./mvnw com.patbaumgartner:prune-maven-plugin:check` analyzes every module with the
+          plugin that was just built. It is not bound to a phase: the plugin cannot analyze
+          the build that is still producing it.
+        -->
+                <plugin>
+                    <groupId>com.patbaumgartner</groupId>
+                    <artifactId>prune-maven-plugin</artifactId>
+                    <version>${project.version}</version>
+                </plugin>
             </plugins>
         </pluginManagement>
 
