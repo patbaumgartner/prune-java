@@ -36,9 +36,8 @@ public final class MavenPomParser {
 	}
 
 	// The reactor shape of a pom: its own coordinates, the parent it inherits from, and
-	// every
-	// <module> it aggregates, including those declared inside profiles. Unparseable poms
-	// aggregate nothing.
+	// every <module> it aggregates, including those declared inside profiles. Unparseable
+	// poms aggregate nothing.
 	public static Structure structure(String pom) {
 		Handler handler = new Handler("");
 		return read(pom, handler) ? handler.structure() : Structure.NONE;

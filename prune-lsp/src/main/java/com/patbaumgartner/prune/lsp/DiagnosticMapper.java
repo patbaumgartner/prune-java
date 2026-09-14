@@ -28,10 +28,8 @@ public final class DiagnosticMapper {
 			String uri = projectRoot.resolve(location.path()).normalize().toUri().toString();
 			Position start = new Position(zeroBased(location.line()), zeroBased(location.column()));
 			// A column anchors at the declared name, so the range covers that name and
-			// the
-			// editor fades the identifier instead of a single caret position; a
-			// dependency
-			// finding only knows its line and keeps an empty range.
+			// the editor fades the identifier instead of a single caret position; a
+			// dependency finding only knows its line and keeps an empty range.
 			Position end = location.hasColumn()
 					? new Position(start.getLine(), start.getCharacter() + simpleName(issue.symbol()).length()) : start;
 

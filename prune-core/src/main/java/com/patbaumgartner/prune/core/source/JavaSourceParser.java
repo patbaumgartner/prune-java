@@ -66,10 +66,8 @@ public final class JavaSourceParser {
 
 		JavaSourceParser parser = new JavaSourceParser(significant, documentedStarts, content.length());
 		// Outside literals and comments a backslash can only start a unicode escape,
-		// which
-		// this parser does not translate, so an escaped identifier letter would hide a
-		// real
-		// reference.
+		// which this parser does not translate, so an escaped identifier letter would
+		// hide a real reference.
 		boolean unicodeEscape = significant.stream().anyMatch(token -> token.isPunctuation('\\'));
 		boolean structural = !unicodeEscape && parser.parses();
 		return new JavaSourceFile(relativePath, content, parser.packageName, parser.imports, qualifiedNames,

@@ -222,11 +222,9 @@ class SampleProjectFixtureTest {
 	}
 
 	// The aggregator makes the Maven samples one reactor, which is also what the analyzer
-	// sees:
-	// references are collected from all of samples/, so a sample's dead code has to be
-	// dead
-	// there too. The Gradle samples keep their own settings.gradle and stay separate
-	// builds.
+	// sees: references are collected from all of samples/, so a sample's dead code has to
+	// be dead there too. The Gradle samples keep their own settings.gradle and stay
+	// separate builds.
 	@Test
 	void theAggregatorListsExactlyTheMavenSamplesAndIsNotTheirParent() throws IOException {
 		var aggregator = MavenPomParser
@@ -245,8 +243,7 @@ class SampleProjectFixtureTest {
 	}
 
 	// A sample must not lean on its neighbours: copied out of samples/ and analyzed
-	// alone, it
-	// reports and explains exactly what it does inside the aggregator.
+	// alone, it reports and explains exactly what it does inside the aggregator.
 	@Test
 	void everySampleReportsTheSameFindingsWhenAnalyzedOutsideTheAggregator(@TempDir Path elsewhere) throws IOException {
 		var analyzer = new ConservativeUnusedCodeAnalyzer();

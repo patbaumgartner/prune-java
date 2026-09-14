@@ -2,7 +2,8 @@ package com.patbaumgartner.prune.core.analyzer;
 
 import java.util.Optional;
 
-// Registered through META-INF/services on the test classpath; keeps exactly one member name.
+// Registered through META-INF/services on the test classpath; keeps exactly one member
+// name.
 public final class PluggedGuard implements Guard {
 
 	@Override

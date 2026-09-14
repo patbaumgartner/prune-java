@@ -957,9 +957,8 @@ class ConservativeUnusedCodeAnalyzerTest {
 	}
 
 	// Gradle source sets such as integrationTest or testFixtures are tests too, so
-	// their references are dropped with the rest when test references are excluded, while
-	// a
-	// jmh or latest source set stays a caller.
+	// their references are dropped with the rest when test references are excluded,
+	// while a jmh or latest source set stays a caller.
 	@Test
 	void everySourceSetNamedLikeATestCountsAsTestSourceAndOtherSourceSetsAsMainSource() throws IOException {
 		write(MAIN + "App.java", """

@@ -178,9 +178,8 @@ public final class DependencyUsage {
 	}
 
 	// A dotted name is two or more ASCII identifiers joined by single dots, found
-	// anywhere
-	// in free text: "see org.example.Api." yields org.example.Api. Scanned by hand so the
-	// cost stays linear in the text, whatever it contains.
+	// anywhere in free text: "see org.example.Api." yields org.example.Api. Scanned by
+	// hand so the cost stays linear in the text, whatever it contains.
 	private static void addDottedNames(Set<String> segments, Set<String> names, String text) {
 		int length = text.length();
 		int position = 0;

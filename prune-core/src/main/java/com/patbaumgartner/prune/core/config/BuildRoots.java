@@ -21,16 +21,11 @@ public final class BuildRoots {
 	}
 
 	// The topmost ancestor whose build includes the analyzed root, one membership at a
-	// time: a
-	// Maven module belongs to the pom above it that lists it as a module or is its
-	// parent, a
-	// Gradle project to the nearest settings file above it unless it has its own. A pom
-	// that
-	// merely sits above a directory does not make that directory part of its build, so a
-	// nested
-	// aggregator (an examples tree with its own pom) is analyzed on its own, and so is
-	// the build
-	// it sits in.
+	// time: a Maven module belongs to the pom above it that lists it as a module or is
+	// its parent, a Gradle project to the nearest settings file above it unless it has
+	// its own. A pom that merely sits above a directory does not make that directory part
+	// of its build, so a nested aggregator (an examples tree with its own pom) is
+	// analyzed on its own, and so is the build it sits in.
 	public static Path enclosingRoot(Path projectRoot) {
 		Path root = projectRoot.toAbsolutePath().normalize();
 		if (!isBuildRoot(root)) {
@@ -73,8 +68,7 @@ public final class BuildRoots {
 	}
 
 	// Gradle resolves a project against the nearest settings file above it; a directory
-	// with its
-	// own settings file is a separate build, however deeply it is nested.
+	// with its own settings file is a separate build, however deeply it is nested.
 	private static boolean isGradleBuildOf(Path ancestor, Path project) {
 		return hasAny(ancestor, GRADLE_SETTINGS) && hasAny(project, GRADLE_BUILD_SCRIPTS)
 				&& !hasAny(project, GRADLE_SETTINGS);
