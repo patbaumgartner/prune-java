@@ -12,6 +12,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
@@ -23,7 +24,7 @@ class SampleProjectFunctionalTest {
 
 	@Test
 	void checkTaskFailsTheBuildWithTheManifestFindingsForTheGradleSampleProject(@TempDir Path projectDir)
-			throws Exception {
+			throws IOException {
 		copySample("gradle-sample", projectDir);
 
 		var result = runner(projectDir, "pruneCheck", "--console=plain").buildAndFail();
@@ -37,12 +38,12 @@ class SampleProjectFunctionalTest {
 					+ expected.size() + " issue(s) found (conservative mode)."),
 				result.getOutput());
 		for (var row : expected) {
-			assertTrue(result.getOutput().contains(simpleName(row.split("\\s+")[2])), row);
+			assertTrue(result.getOutput().contains(simpleName(row.split("\\s+", -1)[2])), row);
 		}
 	}
 
 	@Test
-	void checkTaskWithoutTestReferencesAlsoReportsTheTestOnlyRows(@TempDir Path projectDir) throws Exception {
+	void checkTaskWithoutTestReferencesAlsoReportsTheTestOnlyRows(@TempDir Path projectDir) throws IOException {
 		copySample("gradle-sample", projectDir);
 		Files.writeString(projectDir.resolve("build.gradle"),
 				Files.readString(projectDir.resolve("build.gradle"), StandardCharsets.UTF_8)
@@ -55,14 +56,14 @@ class SampleProjectFunctionalTest {
 		assertTrue(result.getOutput().contains("prune-java found " + expected + " unused-code issue(s)."),
 				result.getOutput());
 		for (var row : manifest(projectDir, "test-only")) {
-			var symbol = row.split("\\s+")[2];
+			var symbol = row.split("\\s+", -1)[2];
 			assertTrue(result.getOutput().contains(simpleName(symbol) + " is only referenced from tests"),
 					result.getOutput());
 		}
 	}
 
 	@Test
-	void checkTaskWithIgnoreFailuresLogsAJsonReportEqualToTheManifest(@TempDir Path projectDir) throws Exception {
+	void checkTaskWithIgnoreFailuresLogsAJsonReportEqualToTheManifest(@TempDir Path projectDir) throws IOException {
 		copySample("gradle-sample", projectDir);
 		Files.writeString(projectDir.resolve("build.gradle"),
 				Files.readString(projectDir.resolve("build.gradle"), StandardCharsets.UTF_8)
@@ -84,7 +85,7 @@ class SampleProjectFunctionalTest {
 			reported.add(matcher.group(1) + " " + matcher.group(2));
 		}
 		var expected = manifest(projectDir, "unused").stream()
-			.map(row -> row.split("\\s+"))
+			.map(row -> row.split("\\s+", -1))
 			.map(columns -> columns[1] + " " + columns[2])
 			.sorted()
 			.toList();
@@ -92,7 +93,7 @@ class SampleProjectFunctionalTest {
 	}
 
 	@Test
-	void checkTaskHonoursExcludesAndStillReportsDependencies(@TempDir Path projectDir) throws Exception {
+	void checkTaskHonoursExcludesAndStillReportsDependencies(@TempDir Path projectDir) throws IOException {
 		copySample("gradle-sample", projectDir);
 		Files.writeString(projectDir.resolve("build.gradle"),
 				Files.readString(projectDir.resolve("build.gradle"), StandardCharsets.UTF_8)
@@ -110,14 +111,14 @@ class SampleProjectFunctionalTest {
 	}
 
 	@Test
-	void checkTaskReportsNoSymbolTheSampleMarksAsKept(@TempDir Path projectDir) throws Exception {
+	void checkTaskReportsNoSymbolTheSampleMarksAsKept(@TempDir Path projectDir) throws IOException {
 		copySample("gradle-sample", projectDir);
 
 		var result = runner(projectDir, "pruneCheck").buildAndFail();
 
 		for (var row : manifest(projectDir, "kept")) {
-			var symbol = row.split("\\s+")[2];
-			for (var line : result.getOutput().split("\\R")) {
+			var symbol = row.split("\\s+", -1)[2];
+			for (var line : result.getOutput().lines().toList()) {
 				if (line.contains(" :: ")) {
 					assertFalse(line.contains(simpleName(symbol) + " is"), line);
 				}
@@ -126,7 +127,7 @@ class SampleProjectFunctionalTest {
 	}
 
 	@Test
-	void fixTaskRewritesTheCopiedSampleAndLeavesTheClassFindingForReview(@TempDir Path projectDir) throws Exception {
+	void fixTaskRewritesTheCopiedSampleAndLeavesTheClassFindingForReview(@TempDir Path projectDir) throws IOException {
 		copySample("gradle-sample", projectDir);
 		var stockLevel = projectDir.resolve("src/main/java/com/example/gradlesample/StockLevel.java");
 		var warehouseCodes = projectDir.resolve("src/main/java/com/example/gradlesample/WarehouseCodes.java");
@@ -183,7 +184,7 @@ class SampleProjectFunctionalTest {
 					Files.createDirectories(destination);
 				}
 				else {
-					Files.createDirectories(destination.getParent());
+					Files.createDirectories(Objects.requireNonNull(destination.getParent()));
 					Files.copy(path, destination, StandardCopyOption.REPLACE_EXISTING);
 				}
 			}

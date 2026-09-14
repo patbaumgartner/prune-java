@@ -12,8 +12,10 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Objects;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -38,12 +40,12 @@ class PruneGradlePluginTest {
 		var task = (PruneCheckTask) project.getTasks().getByName("pruneCheck");
 
 		assertEquals(project.getProjectDir(), task.getProjectRoot().get().getAsFile());
-		assertEquals(Boolean.FALSE, task.getIgnoreFailures().get());
+		assertFalse(task.getIgnoreFailures().get());
 		assertEquals("terminal", task.getFormat().get());
 		assertEquals(List.of(), task.getExcludes().get());
 		assertEquals(new File(project.getProjectDir(), "prune-baseline.txt"), task.getBaseline().get().getAsFile());
-		assertEquals(Boolean.TRUE, task.getTestReferences().get());
-		assertEquals(Boolean.FALSE, task.getExplain().get());
+		assertTrue(task.getTestReferences().get());
+		assertFalse(task.getExplain().get());
 		assertEquals("verification", task.getGroup());
 	}
 
@@ -58,7 +60,7 @@ class PruneGradlePluginTest {
 		assertEquals("terminal", task.getFormat().get());
 		assertEquals(List.of(), task.getExcludes().get());
 		assertEquals(new File(project.getProjectDir(), "prune-baseline.txt"), task.getBaseline().get().getAsFile());
-		assertEquals(Boolean.TRUE, task.getTestReferences().get());
+		assertTrue(task.getTestReferences().get());
 	}
 
 	@Test
@@ -71,11 +73,11 @@ class PruneGradlePluginTest {
 		assertEquals(project.getProjectDir(), task.getProjectRoot().get().getAsFile());
 		assertEquals(List.of(), task.getExcludes().get());
 		assertEquals(new File(project.getProjectDir(), "prune-baseline.txt"), task.getBaseline().get().getAsFile());
-		assertEquals(Boolean.TRUE, task.getTestReferences().get());
+		assertTrue(task.getTestReferences().get());
 	}
 
 	@Test
-	void checkTaskRunsWithTheConfigurationCacheEnabled(@TempDir Path projectDir) throws Exception {
+	void checkTaskRunsWithTheConfigurationCacheEnabled(@TempDir Path projectDir) throws IOException {
 		Files.writeString(projectDir.resolve("settings.gradle"), "rootProject.name = 'cc-probe'\n",
 				StandardCharsets.UTF_8);
 		Files.writeString(projectDir.resolve("build.gradle"), "plugins { id 'com.patbaumgartner.prune-java' }\n",
@@ -92,7 +94,7 @@ class PruneGradlePluginTest {
 	}
 
 	@Test
-	void checkTaskRejectsAnUnknownFormat(@TempDir Path projectDir) throws Exception {
+	void checkTaskRejectsAnUnknownFormat(@TempDir Path projectDir) throws IOException {
 		Files.writeString(projectDir.resolve("settings.gradle"), "rootProject.name = 'format-probe'\n",
 				StandardCharsets.UTF_8);
 		Files.writeString(projectDir.resolve("build.gradle"),
@@ -111,7 +113,8 @@ class PruneGradlePluginTest {
 	}
 
 	@Test
-	void baselineTaskRecordsTheFindingsAndCheckThenPassesWithThemSuppressed(@TempDir Path projectDir) throws Exception {
+	void baselineTaskRecordsTheFindingsAndCheckThenPassesWithThemSuppressed(@TempDir Path projectDir)
+			throws IOException {
 		Files.writeString(projectDir.resolve("settings.gradle"), "rootProject.name = 'baseline-probe'\n",
 				StandardCharsets.UTF_8);
 		Files.writeString(projectDir.resolve("build.gradle"), "plugins { id 'com.patbaumgartner.prune-java' }\n",
@@ -140,7 +143,7 @@ class PruneGradlePluginTest {
 
 	@Test
 	void baselineTaskRunsAgainWhenTheSourcesChangeEvenThoughItsOnlyDeclaredInputsDidNot(@TempDir Path projectDir)
-			throws Exception {
+			throws IOException {
 		Files.writeString(projectDir.resolve("settings.gradle"), "rootProject.name = 'rerun-probe'\n",
 				StandardCharsets.UTF_8);
 		Files.writeString(projectDir.resolve("build.gradle"), "plugins { id 'com.patbaumgartner.prune-java' }\n",
@@ -159,7 +162,7 @@ class PruneGradlePluginTest {
 	}
 
 	@Test
-	void tasksHonourAnExplicitBaselineFileAndTestReferences(@TempDir Path projectDir) throws Exception {
+	void tasksHonourAnExplicitBaselineFileAndTestReferences(@TempDir Path projectDir) throws IOException {
 		Files.writeString(projectDir.resolve("settings.gradle"), "rootProject.name = 'options-probe'\n",
 				StandardCharsets.UTF_8);
 		Files.writeString(projectDir.resolve("build.gradle"), """
@@ -194,7 +197,7 @@ class PruneGradlePluginTest {
 	}
 
 	@Test
-	void checkTaskTurnsAMalformedBaselineIntoABuildFailure(@TempDir Path projectDir) throws Exception {
+	void checkTaskTurnsAMalformedBaselineIntoABuildFailure(@TempDir Path projectDir) throws IOException {
 		Files.writeString(projectDir.resolve("settings.gradle"), "rootProject.name = 'malformed-probe'\n",
 				StandardCharsets.UTF_8);
 		Files.writeString(projectDir.resolve("build.gradle"), "plugins { id 'com.patbaumgartner.prune-java' }\n",
@@ -216,7 +219,7 @@ class PruneGradlePluginTest {
 
 	private static void writeSource(Path projectDir, String relativePath, String content) throws IOException {
 		var file = projectDir.resolve(relativePath);
-		Files.createDirectories(file.getParent());
+		Files.createDirectories(Objects.requireNonNull(file.getParent()));
 		Files.writeString(file, content, StandardCharsets.UTF_8);
 	}
 

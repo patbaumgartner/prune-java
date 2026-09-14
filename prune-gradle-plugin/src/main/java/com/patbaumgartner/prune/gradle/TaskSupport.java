@@ -19,7 +19,7 @@ final class TaskSupport {
 			return OutputFormat.parse(format);
 		}
 		catch (IllegalArgumentException exception) {
-			throw new GradleException(exception.getMessage() + " (expected terminal, github, or json)");
+			throw new GradleException(exception.getMessage() + " (expected terminal, github, or json)", exception);
 		}
 	}
 
@@ -33,7 +33,7 @@ final class TaskSupport {
 	}
 
 	static void logReport(Logger logger, String rendered, boolean asWarning) {
-		for (String line : rendered.split("\\R")) {
+		for (String line : rendered.lines().toList()) {
 			if (asWarning) {
 				logger.warn(line);
 			}
