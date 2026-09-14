@@ -12,15 +12,18 @@ public final class ReportRenderer {
 		};
 	}
 
+	// The summary is the only place that names skipped files, baseline suppressions, and
+	// applied autofixes, so it stays even when no issue is left to list.
 	private String renderTerminal(AnalysisReport report) {
 		String kept = report.kept()
 			.stream()
 			.map(symbol -> "+ [KEPT] " + escapeControlCharacters(symbol.location()) + " :: "
 					+ escapeControlCharacters(symbol.message()) + " [" + escapeControlCharacters(symbol.guard()) + "]")
 			.collect(Collectors.joining(System.lineSeparator()));
+		String summary = "Summary: " + escapeControlCharacters(report.summary());
 		if (report.issues().isEmpty()) {
-			return kept.isEmpty() ? "No unused code detected (conservative mode)."
-					: kept + System.lineSeparator() + "No unused code detected (conservative mode).";
+			return (kept.isEmpty() ? "" : kept + System.lineSeparator())
+					+ "No unused code detected (conservative mode)." + System.lineSeparator() + summary;
 		}
 
 		String issues = report.issues()
@@ -29,13 +32,12 @@ public final class ReportRenderer {
 					+ escapeControlCharacters(issue.message()))
 			.collect(Collectors.joining(System.lineSeparator()));
 
-		return (kept.isEmpty() ? "" : kept + System.lineSeparator()) + issues + System.lineSeparator() + "Summary: "
-				+ escapeControlCharacters(report.summary());
+		return (kept.isEmpty() ? "" : kept + System.lineSeparator()) + issues + System.lineSeparator() + summary;
 	}
 
 	private String renderGithubAnnotation(AnalysisReport report) {
 		if (report.issues().isEmpty()) {
-			return "::notice::No unused code detected (conservative mode).";
+			return "::notice::No unused code detected (conservative mode). " + escapeGithubData(report.summary());
 		}
 
 		return report.issues()

@@ -26,15 +26,30 @@ public final class DiagnosticMapper {
 			SourceLocation location = SourceLocation.parse(issue.location());
 
 			String uri = projectRoot.resolve(location.path()).normalize().toUri().toString();
-			Position position = new Position(zeroBased(location.line()), zeroBased(location.column()));
+			Position start = new Position(zeroBased(location.line()), zeroBased(location.column()));
+			// A column anchors at the declared name, so the range covers that name and
+			// the
+			// editor fades the identifier instead of a single caret position; a
+			// dependency
+			// finding only knows its line and keeps an empty range.
+			Position end = location.hasColumn()
+					? new Position(start.getLine(), start.getCharacter() + simpleName(issue.symbol()).length()) : start;
 
-			Diagnostic diagnostic = new Diagnostic(new Range(position, position), issue.message(),
-					toSeverity(issue.severity()), SOURCE, issue.type().name());
+			Diagnostic diagnostic = new Diagnostic(new Range(start, end), issue.message(), toSeverity(issue.severity()),
+					SOURCE, issue.type().name());
 			diagnostic.setTags(List.of(DiagnosticTag.Unnecessary));
 
 			byUri.computeIfAbsent(uri, key -> new ArrayList<>()).add(diagnostic);
 		}
 		return byUri;
+	}
+
+	private static String simpleName(String symbol) {
+		int member = symbol.lastIndexOf('#');
+		if (member >= 0) {
+			return symbol.substring(member + 1);
+		}
+		return symbol.substring(symbol.lastIndexOf('.') + 1);
 	}
 
 	private static int zeroBased(int oneBased) {

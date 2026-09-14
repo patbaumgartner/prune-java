@@ -69,10 +69,8 @@ class PruneCliApplicationTest {
 	@Test
 	void checkCommandAnalyzesTheWorkingDirectoryByDefaultAndTheRootOptionOtherwise() throws Exception {
 		var roots = new ArrayList<Path>();
-		var dryRuns = new ArrayList<Boolean>();
 		UnusedCodeAnalyzer analyzer = config -> {
 			roots.add(config.projectRoot());
-			dryRuns.add(config.dryRun());
 			return emptyReport();
 		};
 		var app = new PruneCliApplication(analyzer, new ReportRenderer());
@@ -84,7 +82,6 @@ class PruneCliApplicationTest {
 				new PrintStream(new ByteArrayOutputStream()));
 
 		assertEquals(List.of(Path.of("."), other), roots);
-		assertEquals(List.of(true, true), dryRuns);
 	}
 
 	@Test
@@ -170,17 +167,15 @@ class PruneCliApplicationTest {
 				new PrintStream(new ByteArrayOutputStream()));
 
 		assertEquals(0, exitCode);
-		assertTrue(stdout.toString().contains("No unused code detected"));
+		assertEquals("No unused code detected (conservative mode)." + System.lineSeparator()
+				+ "Summary: Applied 1 autofix(es) in 1 file(s); 0 issue(s) remain (conservative mode)."
+				+ System.lineSeparator(), stdout.toString());
 	}
 
 	@Test
-	void fixCommandPassesTheAnalyzedRootToTheEngineAndDisablesDryRun() {
+	void fixCommandPassesTheAnalyzedRootToTheEngine() {
 		var roots = new ArrayList<Path>();
-		var dryRuns = new ArrayList<Boolean>();
-		UnusedCodeAnalyzer analyzer = config -> {
-			dryRuns.add(config.dryRun());
-			return emptyReport();
-		};
+		UnusedCodeAnalyzer analyzer = config -> emptyReport();
 		var app = new PruneCliApplication(analyzer, new ReportRenderer(), root -> {
 			roots.add(root);
 			return new RecordingEngine();
@@ -190,7 +185,6 @@ class PruneCliApplicationTest {
 				new PrintStream(new ByteArrayOutputStream()));
 
 		assertEquals(List.of(tempDir), roots);
-		assertEquals(List.of(false), dryRuns);
 	}
 
 	@Test
@@ -364,8 +358,9 @@ class PruneCliApplicationTest {
 
 		assertEquals(List.of(1, 0, 0), List.of(before, baseline, after));
 		assertEquals("+ [KEPT] src/main/java/com/example/App.java:4:18 :: accepted in prune-baseline.txt [baseline]"
-				+ System.lineSeparator() + "No unused code detected (conservative mode)." + System.lineSeparator(),
-				stdout.toString());
+				+ System.lineSeparator() + "No unused code detected (conservative mode)." + System.lineSeparator()
+				+ "Summary: Analyzed 1 Java file(s) under " + tempDir + ": 0 issue(s) found (conservative mode)."
+				+ " 1 issue(s) suppressed by prune-baseline.txt." + System.lineSeparator(), stdout.toString());
 	}
 
 	@Test
@@ -398,13 +393,8 @@ class PruneCliApplicationTest {
 	}
 
 	@Test
-	void ciFlagSelectsGithubAnnotationOutputAndCiMode() {
-		var ciModes = new ArrayList<Boolean>();
-		UnusedCodeAnalyzer analyzer = config -> {
-			ciModes.add(config.ciMode());
-			return emptyReport();
-		};
-		var app = new PruneCliApplication(analyzer, new ReportRenderer());
+	void ciFlagSelectsGithubAnnotationOutput() {
+		var app = new PruneCliApplication(config -> emptyReport(), new ReportRenderer());
 		var stdout = new ByteArrayOutputStream();
 
 		int exitCode = app.run(new String[] { "check", "--ci" }, new PrintStream(stdout),
@@ -412,7 +402,6 @@ class PruneCliApplicationTest {
 
 		assertEquals(0, exitCode);
 		assertTrue(stdout.toString().startsWith("::notice::"));
-		assertEquals(List.of(true), ciModes);
 	}
 
 	@Test

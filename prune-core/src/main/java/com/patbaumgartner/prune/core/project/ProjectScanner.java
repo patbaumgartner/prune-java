@@ -153,13 +153,23 @@ public final class ProjectScanner {
 		return false;
 	}
 
+	// src/test, and any other source set whose camel-case name starts or ends with the
+	// word test: integrationTest, testFixtures, functionalTest. A jmh, generated, or
+	// latest source set stays a main caller.
 	private static boolean isTestSource(Path relative) {
 		for (int i = 0; i + 1 < relative.getNameCount(); i++) {
-			if ("src".equals(relative.getName(i).toString()) && "test".equals(relative.getName(i + 1).toString())) {
+			if ("src".equals(relative.getName(i).toString()) && isTestSourceSet(relative.getName(i + 1).toString())) {
 				return true;
 			}
 		}
 		return false;
+	}
+
+	private static boolean isTestSourceSet(String name) {
+		if (name.equals("test") || name.endsWith("Test")) {
+			return true;
+		}
+		return name.startsWith("test") && Character.isUpperCase(name.charAt(4));
 	}
 
 	private static boolean isTextResource(Path file) throws IOException {

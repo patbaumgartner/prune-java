@@ -44,8 +44,11 @@ the nearest `settings.gradle(.kts)` above it unless it has its own. A pom that m
 a directory does not pull that directory into its build, so an `examples/` tree with its own
 aggregator is analyzed as its own reactor, not as part of the repository around it. Candidates
 always come from
-`src/main` trees only; code under `src/test` is read as a source of references but never
-reported. Test references can be switched off (`--no-test-references`, `prune.testReferences=false`,
+`src/main/java` trees only; code under `src/test` and under any other source set whose name
+starts or ends with `test` (`integrationTest`, `testFixtures`, `functionalTest`) is read as a
+source of test references but never reported, and every remaining source set (`jmh`, a
+generated tree) counts as production code that references but is not reported either. Test
+references can be switched off (`--no-test-references`, `prune.testReferences=false`,
 `testReferences = false`) to find production code that only tests still reach; such findings say
 `is only referenced from tests`. `UNUSED_VISIBILITY` always counts tests, because a test in
 another package would stop compiling if the class lost `public`. Besides Java files, a class name

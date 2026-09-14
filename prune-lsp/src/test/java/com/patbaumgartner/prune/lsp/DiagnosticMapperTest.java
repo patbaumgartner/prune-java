@@ -54,16 +54,41 @@ class DiagnosticMapperTest {
 	}
 
 	@Test
-	void trailingLineAndColumnBecomeZeroBasedPosition() {
-		var issue = new AnalysisIssue(IssueType.UNUSED_FIELD, Severity.INFO, "Foo#x", "src/main/java/Foo.java:12:5",
-				"unused", true);
+	void trailingLineAndColumnBecomeZeroBasedPositionAndTheRangeSpansTheMemberName() {
+		var issue = new AnalysisIssue(IssueType.UNUSED_FIELD, Severity.INFO, "a.Foo#counter",
+				"src/main/java/Foo.java:12:5", "unused", true);
 		var report = new AnalysisReport(List.of(issue), "one", true);
 
 		var byUri = mapper.map(report, tempDir);
 
 		var expectedUri = tempDir.resolve("src/main/java/Foo.java").toUri().toString();
 		var diagnostic = byUri.get(expectedUri).get(0);
-		assertEquals(new Range(new Position(11, 4), new Position(11, 4)), diagnostic.getRange());
+		assertEquals(new Range(new Position(11, 4), new Position(11, 11)), diagnostic.getRange());
+	}
+
+	@Test
+	void rangeSpansTheSimpleNameOfATypeAndOfANestedType() {
+		var top = new AnalysisIssue(IssueType.UNUSED_CLASS, Severity.WARNING, "a.b.Outer", "src/main/java/A.java:1:14",
+				"unused", false);
+		var nested = new AnalysisIssue(IssueType.UNUSED_VISIBILITY, Severity.INFO, "a.b.Outer.In",
+				"src/main/java/A.java:4:22", "unused", true);
+		var report = new AnalysisReport(List.of(top, nested), "two", true);
+
+		var diagnostics = mapper.map(report, tempDir).values().iterator().next();
+
+		assertEquals(new Range(new Position(0, 13), new Position(0, 18)), diagnostics.get(0).getRange());
+		assertEquals(new Range(new Position(3, 21), new Position(3, 23)), diagnostics.get(1).getRange());
+	}
+
+	@Test
+	void dependencyFindingWithoutAColumnStaysAtTheStartOfItsLine() {
+		var issue = new AnalysisIssue(IssueType.UNUSED_DEPENDENCY, Severity.WARNING, "org.example:lib", "pom.xml:20",
+				"unused", true);
+		var report = new AnalysisReport(List.of(issue), "one", true);
+
+		var diagnostic = mapper.map(report, tempDir).values().iterator().next().get(0);
+
+		assertEquals(new Range(new Position(19, 0), new Position(19, 0)), diagnostic.getRange());
 	}
 
 	@Test

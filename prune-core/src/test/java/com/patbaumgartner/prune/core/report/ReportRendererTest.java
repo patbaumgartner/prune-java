@@ -15,7 +15,23 @@ class ReportRendererTest {
 
 		var output = renderer.render(report, OutputFormat.TERMINAL);
 
-		assertEquals("No unused code detected (conservative mode).", output);
+		assertEquals("No unused code detected (conservative mode)." + System.lineSeparator() + "Summary: none", output);
+	}
+
+	// Skipped files, baseline suppressions, and applied autofixes are only reported in
+	// the
+	// summary, and matter most when no issue is left to list.
+	@Test
+	void emptyTerminalReportKeepsTheSummaryAndEscapesIt() {
+		var renderer = new ReportRenderer();
+		var report = new AnalysisReport(List.of(),
+				"Applied 2 autofix(es) in 1 file(s); 0 issue(s) remain (conservative mode).\u001b[2K", true);
+
+		var output = renderer.render(report, OutputFormat.TERMINAL);
+
+		assertEquals("No unused code detected (conservative mode)." + System.lineSeparator()
+				+ "Summary: Applied 2 autofix(es) in 1 file(s); 0 issue(s) remain (conservative mode).\\u001b[2K",
+				output);
 	}
 
 	@Test
@@ -35,7 +51,19 @@ class ReportRendererTest {
 
 		var output = renderer.render(report, OutputFormat.GITHUB_ANNOTATION);
 
-		assertEquals("::notice::No unused code detected (conservative mode).", output);
+		assertEquals("::notice::No unused code detected (conservative mode). none", output);
+	}
+
+	@Test
+	void emptyGithubReportEscapesTheSummaryAsAnnotationData() {
+		var renderer = new ReportRenderer();
+		var report = new AnalysisReport(List.of(), "Skipped 1 file(s): A%.java\r\n::error::spoof", true);
+
+		var output = renderer.render(report, OutputFormat.GITHUB_ANNOTATION);
+
+		assertEquals(
+				"::notice::No unused code detected (conservative mode). Skipped 1 file(s): A%25.java%0D%0A::error::spoof",
+				output);
 	}
 
 	@Test
@@ -108,10 +136,9 @@ class ReportRendererTest {
 
 		var output = renderer.render(report, OutputFormat.TERMINAL);
 
-		assertEquals(
-				"+ [KEPT] src/main/java/a/C.java:5:17 :: Private field f is kept: the class is Serializable"
-						+ " [serialization]" + System.lineSeparator() + "No unused code detected (conservative mode).",
-				output);
+		assertEquals("+ [KEPT] src/main/java/a/C.java:5:17 :: Private field f is kept: the class is Serializable"
+				+ " [serialization]" + System.lineSeparator() + "No unused code detected (conservative mode)."
+				+ System.lineSeparator() + "Summary: none", output);
 	}
 
 	@Test
@@ -121,7 +148,7 @@ class ReportRendererTest {
 				"Private field f is kept: the class is Serializable");
 		var report = new AnalysisReport(List.of(), "none", true, List.of(kept));
 
-		assertEquals("::notice::No unused code detected (conservative mode).",
+		assertEquals("::notice::No unused code detected (conservative mode). none",
 				renderer.render(report, OutputFormat.GITHUB_ANNOTATION));
 	}
 
@@ -227,7 +254,8 @@ class ReportRendererTest {
 		var renderer = new ReportRenderer();
 		var report = new AnalysisReport(List.of(), "none", true);
 
-		assertEquals("No unused code detected (conservative mode).", renderer.render(report, OutputFormat.TERMINAL));
+		assertEquals("No unused code detected (conservative mode)." + System.lineSeparator() + "Summary: none",
+				renderer.render(report, OutputFormat.TERMINAL));
 		assertEquals("{\"summary\":\"none\",\"conservativeMode\":true,\"issues\":[],\"kept\":[]}",
 				renderer.render(report, OutputFormat.JSON));
 	}

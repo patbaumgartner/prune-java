@@ -890,6 +890,35 @@ class ConservativeUnusedCodeAnalyzerTest {
 		assertEquals("Nested class Fixture is only referenced from tests", report.issues().get(0).message());
 	}
 
+	// Gradle source sets such as integrationTest or testFixtures are tests too, so
+	// their references are dropped with the rest when test references are excluded, while
+	// a
+	// jmh or latest source set stays a caller.
+	@Test
+	void everySourceSetNamedLikeATestCountsAsTestSourceAndOtherSourceSetsAsMainSource() throws Exception {
+		write(MAIN + "App.java", "package com.example;\n\npublic class App {\n    private void helper() { }\n"
+				+ "    private void fixture() { }\n    private void bench() { }\n    private void newest() { }\n}\n");
+		write("src/integrationTest/java/com/example/AppIT.java", "package com.example;\n\nclass AppIT {\n"
+				+ "    Object m = App.class.getDeclaredMethod(\"helper\");\n}\n");
+		write("src/testFixtures/java/com/example/AppFixtures.java", "package com.example;\n\nclass AppFixtures {\n"
+				+ "    Object m = App.class.getDeclaredMethod(\"fixture\");\n}\n");
+		write("src/jmh/java/com/example/AppBench.java", "package com.example;\n\nclass AppBench {\n"
+				+ "    Object m = App.class.getDeclaredMethod(\"bench\");\n}\n");
+		write("src/latest/java/com/example/AppLatest.java", "package com.example;\n\nclass AppLatest {\n"
+				+ "    Object m = App.class.getDeclaredMethod(\"newest\");\n}\n");
+
+		var included = analyze();
+		var excluded = new ConservativeUnusedCodeAnalyzer()
+			.analyze(AnalysisConfig.defaultFor(root).withIncludeTestReferences(false));
+
+		assertEquals(List.of(), included.issues());
+		assertEquals(List.of("com.example.App#helper", "com.example.App#fixture"),
+				symbols(excluded, IssueType.UNUSED_METHOD));
+		assertEquals("Private method helper is only referenced from tests", excluded.issues().get(0).message());
+		assertEquals("Analyzed 1 Java file(s) under " + root + ": 2 issue(s) found (conservative mode).",
+				excluded.summary());
+	}
+
 	@Test
 	void baselineSuppressesListedFindingsCountsThemInTheSummaryAndExplainsThem() throws Exception {
 		write(MAIN + "App.java",

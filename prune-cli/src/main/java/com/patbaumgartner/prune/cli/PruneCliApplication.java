@@ -151,8 +151,6 @@ public final class PruneCliApplication {
 
 		AnalysisConfig config = AnalysisConfig.defaultFor(root)
 			.withExcludePatterns(excludes)
-			.withCiMode(ciMode)
-			.withDryRun(command != Command.FIX)
 			.withIncludeTestReferences(testReferences)
 			.withExplain(explain);
 		if (baseline != null) {
