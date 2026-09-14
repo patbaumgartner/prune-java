@@ -16,10 +16,12 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -145,7 +147,7 @@ class SampleProjectFixtureTest {
 	}
 
 	@Test
-	void aBaselineWrittenFromAReportSuppressesEveryFindingOfEverySample(@TempDir Path baselines) throws Exception {
+	void aBaselineWrittenFromAReportSuppressesEveryFindingOfEverySample(@TempDir Path baselines) throws IOException {
 		var analyzer = new ConservativeUnusedCodeAnalyzer();
 
 		for (var sample : SAMPLES) {
@@ -170,7 +172,7 @@ class SampleProjectFixtureTest {
 	}
 
 	@Test
-	void everyFindingPointsAtALineThatNamesTheSymbol() throws Exception {
+	void everyFindingPointsAtALineThatNamesTheSymbol() throws IOException {
 		var analyzer = new ConservativeUnusedCodeAnalyzer();
 
 		for (var sample : SAMPLES) {
@@ -202,8 +204,9 @@ class SampleProjectFixtureTest {
 	// Harness coupling lives in the plugin builds; a sample that applied prune-java would
 	// no longer resemble the projects it stands in for.
 	@Test
-	void samplesNeverApplyPruneJavaAndCommitNoBaseline() throws Exception {
-		assertFalse(Files.readString(samplesDirectory().resolve("pom.xml")).contains("com.patbaumgartner"));
+	void samplesNeverApplyPruneJavaAndCommitNoBaseline() throws IOException {
+		assertFalse(Files.readString(samplesDirectory().resolve("pom.xml"), StandardCharsets.UTF_8)
+			.contains("com.patbaumgartner"));
 		for (var sample : SAMPLES) {
 			var root = sampleRoot(sample);
 			assertFalse(Files.exists(root.resolve(AnalysisConfig.DEFAULT_BASELINE_FILE)), sample);
@@ -211,7 +214,8 @@ class SampleProjectFixtureTest {
 				for (var file : files.filter(Files::isRegularFile)
 					.filter(SampleProjectFixtureTest::isSampleSource)
 					.toList()) {
-					assertFalse(Files.readString(file).contains("com.patbaumgartner"), file.toString());
+					assertFalse(Files.readString(file, StandardCharsets.UTF_8).contains("com.patbaumgartner"),
+							file.toString());
 				}
 			}
 		}
@@ -224,8 +228,9 @@ class SampleProjectFixtureTest {
 	// there too. The Gradle samples keep their own settings.gradle and stay separate
 	// builds.
 	@Test
-	void theAggregatorListsExactlyTheMavenSamplesAndIsNotTheirParent() throws Exception {
-		var aggregator = MavenPomParser.structure(Files.readString(samplesDirectory().resolve("pom.xml")));
+	void theAggregatorListsExactlyTheMavenSamplesAndIsNotTheirParent() throws IOException {
+		var aggregator = MavenPomParser
+			.structure(Files.readString(samplesDirectory().resolve("pom.xml"), StandardCharsets.UTF_8));
 
 		var mavenSamples = SAMPLES.stream()
 			.filter(sample -> Files.isRegularFile(sampleRoot(sample).resolve("pom.xml")));
@@ -233,7 +238,8 @@ class SampleProjectFixtureTest {
 		assertEquals(List.of("gradle-sample", "micronaut-sample"),
 				SAMPLES.stream().filter(sample -> !aggregator.modules().contains(sample)).toList());
 		for (var module : aggregator.modules()) {
-			var sample = MavenPomParser.structure(Files.readString(sampleRoot(module).resolve("pom.xml")));
+			var sample = MavenPomParser
+				.structure(Files.readString(sampleRoot(module).resolve("pom.xml"), StandardCharsets.UTF_8));
 			assertFalse(aggregator.isParentOf(sample), module);
 		}
 	}
@@ -242,7 +248,7 @@ class SampleProjectFixtureTest {
 	// alone, it
 	// reports and explains exactly what it does inside the aggregator.
 	@Test
-	void everySampleReportsTheSameFindingsWhenAnalyzedOutsideTheAggregator(@TempDir Path elsewhere) throws Exception {
+	void everySampleReportsTheSameFindingsWhenAnalyzedOutsideTheAggregator(@TempDir Path elsewhere) throws IOException {
 		var analyzer = new ConservativeUnusedCodeAnalyzer();
 
 		for (var sample : SAMPLES) {
@@ -271,13 +277,13 @@ class SampleProjectFixtureTest {
 
 	private static void assertLineNamesSymbol(Path root, String location, String symbol) throws IOException {
 		var parsed = SourceLocation.parse(location);
-		var lines = Files.readAllLines(root.resolve(parsed.path()));
+		var lines = Files.readAllLines(root.resolve(parsed.path()), StandardCharsets.UTF_8);
 		assertTrue(parsed.hasLine() && parsed.line() <= lines.size(), location);
 		assertTrue(lines.get(parsed.line() - 1).contains(simpleName(symbol)), location + " -> " + symbol);
 	}
 
 	private static boolean isSampleSource(Path file) {
-		var name = file.getFileName().toString();
+		var name = String.valueOf(file.getFileName());
 		var path = file.toString().replace('\\', '/');
 		return !"expected-findings.txt".equals(name) && !path.contains("/build/") && !path.contains("/target/")
 				&& !path.contains("/.gradle/");
@@ -295,7 +301,7 @@ class SampleProjectFixtureTest {
 					Files.createDirectories(destination);
 				}
 				else {
-					Files.createDirectories(destination.getParent());
+					Files.createDirectories(Objects.requireNonNull(destination.getParent()));
 					Files.copy(path, destination);
 				}
 			}
@@ -346,7 +352,7 @@ class SampleProjectFixtureTest {
 	private static List<String[]> entries(String sample) {
 		var manifest = sampleRoot(sample).resolve("expected-findings.txt");
 		try {
-			return Files.readAllLines(manifest)
+			return Files.readAllLines(manifest, StandardCharsets.UTF_8)
 				.stream()
 				.map(String::strip)
 				.filter(line -> !line.isEmpty() && !line.startsWith("#"))
@@ -361,7 +367,7 @@ class SampleProjectFixtureTest {
 	private static List<String> discoverSamples() {
 		try (Stream<Path> directories = Files.list(samplesDirectory())) {
 			return directories.filter(directory -> Files.isRegularFile(directory.resolve("expected-findings.txt")))
-				.map(directory -> directory.getFileName().toString())
+				.map(directory -> String.valueOf(directory.getFileName()))
 				.sorted()
 				.toList();
 		}

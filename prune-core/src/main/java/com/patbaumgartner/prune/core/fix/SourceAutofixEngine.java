@@ -15,6 +15,7 @@ import com.patbaumgartner.prune.core.source.MemberDeclaration;
 import com.patbaumgartner.prune.core.source.Token;
 import com.patbaumgartner.prune.core.source.TokenKind;
 import com.patbaumgartner.prune.core.source.TypeDeclaration;
+import org.jspecify.annotations.Nullable;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -74,7 +75,7 @@ public final class SourceAutofixEngine implements AutofixEngine {
 		for (Map.Entry<Path, List<FixAction>> entry : byFile.entrySet()) {
 			List<FixAction> fileActions = entry.getValue();
 			String content = contents.get(SourceLocation.parse(fileActions.get(0).issue().location()).path());
-			if (content != null && entry.getKey().getFileName().toString().endsWith(".java")) {
+			if (content != null && fileName(entry.getKey()).endsWith(".java")) {
 				withImports.addAll(ImportCleanup.plan(entry.getKey(), content, fileActions));
 			}
 			withImports.addAll(fileActions);
@@ -130,7 +131,11 @@ public final class SourceAutofixEngine implements AutofixEngine {
 	private static void writeAtomically(Path file, String content) {
 		try {
 			Path target = file.toRealPath();
-			Path temp = Files.createTempFile(target.getParent(), "." + target.getFileName(), ".prune");
+			Path directory = target.getParent();
+			if (directory == null) {
+				throw new IllegalStateException(target + " has no parent directory");
+			}
+			Path temp = Files.createTempFile(directory, "." + fileName(target), ".prune");
 			try {
 				Files.writeString(temp, content, StandardCharsets.UTF_8);
 				copyPermissions(target, temp);
@@ -150,7 +155,7 @@ public final class SourceAutofixEngine implements AutofixEngine {
 		}
 	}
 
-	private FixAction planFor(AnalysisIssue issue, Map<String, String> contents) {
+	private @Nullable FixAction planFor(AnalysisIssue issue, Map<String, String> contents) {
 		SourceLocation location = SourceLocation.parse(issue.location());
 		Path file = projectRoot.resolve(location.path()).normalize();
 		if (!file.startsWith(projectRoot) || !Files.isRegularFile(file) || !location.hasLine() || escapesRoot(file)) {
@@ -191,7 +196,7 @@ public final class SourceAutofixEngine implements AutofixEngine {
 		}
 	}
 
-	private static FixAction planMemberRemoval(AnalysisIssue issue, SourceLocation location, Path file,
+	private static @Nullable FixAction planMemberRemoval(AnalysisIssue issue, SourceLocation location, Path file,
 			String content) {
 		int hash = issue.symbol().lastIndexOf('#');
 		if (hash < 0) {
@@ -222,8 +227,8 @@ public final class SourceAutofixEngine implements AutofixEngine {
 				"Remove unused private " + kind + " " + memberName);
 	}
 
-	private static MemberDeclaration findMember(List<TypeDeclaration> types, String name, SourceLocation location,
-			LineMap map) {
+	private static @Nullable MemberDeclaration findMember(List<TypeDeclaration> types, String name,
+			SourceLocation location, LineMap map) {
 		for (TypeDeclaration type : types) {
 			for (MemberDeclaration member : type.members()) {
 				if (member.name().equals(name) && map.lineOf(member.nameOffset()) == location.line()
@@ -268,7 +273,7 @@ public final class SourceAutofixEngine implements AutofixEngine {
 		return start;
 	}
 
-	private static FixAction planVisibilityReduction(AnalysisIssue issue, SourceLocation location, Path file,
+	private static @Nullable FixAction planVisibilityReduction(AnalysisIssue issue, SourceLocation location, Path file,
 			String content) {
 		String simpleName = issue.symbol().substring(issue.symbol().lastIndexOf('.') + 1);
 		JavaSourceFile source = JavaSourceParser.parse(location.path(), content);
@@ -291,10 +296,9 @@ public final class SourceAutofixEngine implements AutofixEngine {
 		return null;
 	}
 
-	private static FixAction planDependencyRemoval(AnalysisIssue issue, SourceLocation location, Path file,
+	private static @Nullable FixAction planDependencyRemoval(AnalysisIssue issue, SourceLocation location, Path file,
 			String content) {
-		String fileName = file.getFileName().toString();
-		boolean maven = "pom.xml".equals(fileName);
+		boolean maven = "pom.xml".equals(fileName(file));
 		List<DeclaredDependency> declared = maven ? MavenPomParser.parse(location.path(), content)
 				: GradleBuildParser.parse(location.path(), content);
 		LineMap map = new LineMap(content);
@@ -333,7 +337,8 @@ public final class SourceAutofixEngine implements AutofixEngine {
 		return first;
 	}
 
-	private static String readUtf8(Path file) {
+	// Null for a file that is not valid UTF-8: rewriting it would corrupt it.
+	private static @Nullable String readUtf8(Path file) {
 		try {
 			ByteBuffer bytes = ByteBuffer.wrap(Files.readAllBytes(file));
 			return StandardCharsets.UTF_8.newDecoder()
@@ -348,6 +353,11 @@ public final class SourceAutofixEngine implements AutofixEngine {
 		catch (IOException exception) {
 			throw new UncheckedIOException(exception);
 		}
+	}
+
+	private static String fileName(Path file) {
+		Path name = file.getFileName();
+		return name == null ? "" : name.toString();
 	}
 
 }

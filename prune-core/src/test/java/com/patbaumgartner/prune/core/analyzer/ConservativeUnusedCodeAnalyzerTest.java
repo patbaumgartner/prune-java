@@ -15,6 +15,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Objects;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -31,7 +32,7 @@ class ConservativeUnusedCodeAnalyzerTest {
 	Path root;
 
 	@Test
-	void reportsPackagePrivateClassWithoutReferences() throws Exception {
+	void reportsPackagePrivateClassWithoutReferences() throws IOException {
 		write(MAIN + "Dead.java",
 				"package com.example;\n\nfinal class Dead {\n    String build() { return \"x\"; }\n}\n");
 		write(MAIN + "App.java",
@@ -48,7 +49,7 @@ class ConservativeUnusedCodeAnalyzerTest {
 	}
 
 	@Test
-	void keepsPackagePrivateClassReferencedFromAnotherFile() throws Exception {
+	void keepsPackagePrivateClassReferencedFromAnotherFile() throws IOException {
 		write(MAIN + "Helper.java", "package com.example;\n\nfinal class Helper {\n}\n");
 		write(MAIN + "App.java", "package com.example;\n\npublic class App {\n    Object h = new Helper();\n}\n");
 
@@ -56,7 +57,7 @@ class ConservativeUnusedCodeAnalyzerTest {
 	}
 
 	@Test
-	void keepsPackagePrivateClassReferencedOnlyFromTestsByDefault() throws Exception {
+	void keepsPackagePrivateClassReferencedOnlyFromTestsByDefault() throws IOException {
 		write(MAIN + "Helper.java", "package com.example;\n\nfinal class Helper {\n}\n");
 		write(TEST + "HelperTest.java",
 				"package com.example;\n\nclass HelperTest {\n    Helper subject = new Helper();\n}\n");
@@ -65,7 +66,7 @@ class ConservativeUnusedCodeAnalyzerTest {
 	}
 
 	@Test
-	void reportsPackagePrivateClassReferencedOnlyFromTestsWhenTestReferencesAreExcluded() throws Exception {
+	void reportsPackagePrivateClassReferencedOnlyFromTestsWhenTestReferencesAreExcluded() throws IOException {
 		write(MAIN + "Helper.java", "package com.example;\n\nfinal class Helper {\n}\n");
 		write(TEST + "HelperTest.java",
 				"package com.example;\n\nclass HelperTest {\n    Helper subject = new Helper();\n}\n");
@@ -78,7 +79,7 @@ class ConservativeUnusedCodeAnalyzerTest {
 	}
 
 	@Test
-	void keepsPackagePrivateClassNamedInAResourceFile() throws Exception {
+	void keepsPackagePrivateClassNamedInAResourceFile() throws IOException {
 		write(MAIN + "Provider.java",
 				"package com.example;\n\nfinal class Provider implements Runnable {\n    public void run() { }\n}\n");
 		write("src/main/resources/META-INF/services/java.lang.Runnable", "com.example.Provider\n");
@@ -87,16 +88,22 @@ class ConservativeUnusedCodeAnalyzerTest {
 	}
 
 	@Test
-	void keepsPackagePrivateClassNamedInAStringLiteral() throws Exception {
+	void keepsPackagePrivateClassNamedInAStringLiteral() throws IOException {
 		write(MAIN + "Plugin.java", "package com.example;\n\nfinal class Plugin {\n}\n");
-		write(MAIN + "Loader.java", "package com.example;\n\npublic class Loader {\n"
-				+ "    Object load() throws Exception { return Class.forName(\"com.example.Plugin\").getConstructor().newInstance(); }\n}\n");
+		write(MAIN + "Loader.java",
+				"""
+						package com.example;
+
+						public class Loader {
+						    Object load() throws IOException { return Class.forName("com.example.Plugin").getConstructor().newInstance(); }
+						}
+						""");
 
 		assertEquals(List.of(), analyze().issues());
 	}
 
 	@Test
-	void keepsAnnotatedClassesAndEntryPoints() throws Exception {
+	void keepsAnnotatedClassesAndEntryPoints() throws IOException {
 		write(MAIN + "Bean.java", "package com.example;\n\n@Deprecated\nfinal class Bean {\n}\n");
 		write(MAIN + "Main.java",
 				"package com.example;\n\nfinal class Main {\n    public static void main(String... args) { }\n}\n");
@@ -105,14 +112,14 @@ class ConservativeUnusedCodeAnalyzerTest {
 	}
 
 	@Test
-	void neverReportsAPublicClassAsUnused() throws Exception {
+	void neverReportsAPublicClassAsUnused() throws IOException {
 		write(MAIN + "Api.java", "package com.example;\n\npublic final class Api {\n    public void call() { }\n}\n");
 
 		assertEquals(List.of(), analyze().issues());
 	}
 
 	@Test
-	void reportsPrivateMethodsAndFieldsWithoutReferences() throws Exception {
+	void reportsPrivateMethodsAndFieldsWithoutReferences() throws IOException {
 		write(MAIN + "Service.java", """
 				package com.example;
 
@@ -147,7 +154,7 @@ class ConservativeUnusedCodeAnalyzerTest {
 	}
 
 	@Test
-	void keepsPrivateMembersReferencedFromNestedClassesLambdasAndMethodReferences() throws Exception {
+	void keepsPrivateMembersReferencedFromNestedClassesLambdasAndMethodReferences() throws IOException {
 		write(MAIN + "Outer.java", """
 				package com.example;
 
@@ -172,7 +179,7 @@ class ConservativeUnusedCodeAnalyzerTest {
 	}
 
 	@Test
-	void keepsAnnotatedMembersSerializationHooksNativeMethodsAndConstructors() throws Exception {
+	void keepsAnnotatedMembersSerializationHooksNativeMethodsAndConstructors() throws IOException {
 		write(MAIN + "Special.java", """
 				package com.example;
 
@@ -191,7 +198,7 @@ class ConservativeUnusedCodeAnalyzerTest {
 	}
 
 	@Test
-	void keepsPrivateInstanceFieldsWhenAReflectiveSerializationLibraryIsImported() throws Exception {
+	void keepsPrivateInstanceFieldsWhenAReflectiveSerializationLibraryIsImported() throws IOException {
 		write(MAIN + "Dto.java",
 				"package com.example;\n\npublic class Dto {\n    private String name;\n    private static int COUNTER;\n}\n");
 		write(MAIN + "Json.java",
@@ -203,7 +210,7 @@ class ConservativeUnusedCodeAnalyzerTest {
 	}
 
 	@Test
-	void keepsPrivateFieldsOfSerializableAndAnnotatedTypesButStillReportsTheirPrivateMethods() throws Exception {
+	void keepsPrivateFieldsOfSerializableAndAnnotatedTypesButStillReportsTheirPrivateMethods() throws IOException {
 		write(MAIN + "Entity.java",
 				"package com.example;\n\n@Deprecated\npublic class Entity {\n    private String column;\n    private void orphan() { }\n}\n");
 		write(MAIN + "Payload.java",
@@ -216,7 +223,7 @@ class ConservativeUnusedCodeAnalyzerTest {
 	}
 
 	@Test
-	void reportsOnlyTheClassWhenAnUnusedClassAlsoHasUnusedPrivateMembers() throws Exception {
+	void reportsOnlyTheClassWhenAnUnusedClassAlsoHasUnusedPrivateMembers() throws IOException {
 		write(MAIN + "Dead.java",
 				"package com.example;\n\nfinal class Dead {\n    private int x;\n    private void y() { }\n}\n");
 
@@ -227,7 +234,7 @@ class ConservativeUnusedCodeAnalyzerTest {
 	}
 
 	@Test
-	void reportsUnusedPrivateMembersOfNestedTypesWithDottedSymbols() throws Exception {
+	void reportsUnusedPrivateMembersOfNestedTypesWithDottedSymbols() throws IOException {
 		write(MAIN + "Outer.java",
 				"package com.example;\n\npublic class Outer {\n    static class Inner {\n        private int orphan;\n    }\n    Inner inner = new Inner();\n}\n");
 
@@ -237,7 +244,7 @@ class ConservativeUnusedCodeAnalyzerTest {
 	}
 
 	@Test
-	void reportsNonPublicNestedTypesThatNothingReferencesAndSuppressesTheirMembers() throws Exception {
+	void reportsNonPublicNestedTypesThatNothingReferencesAndSuppressesTheirMembers() throws IOException {
 		write(MAIN + "Outer.java", """
 				package com.example;
 
@@ -273,7 +280,7 @@ class ConservativeUnusedCodeAnalyzerTest {
 	}
 
 	@Test
-	void keepsNestedTypesReferencedFromOtherFilesStringsOrResources() throws Exception {
+	void keepsNestedTypesReferencedFromOtherFilesStringsOrResources() throws IOException {
 		write(MAIN + "Outer.java",
 				"package com.example;\n\npublic class Outer {\n    static class Imported { }\n    static class Qualified { }\n    static class Reflected { }\n    static class Declared { }\n}\n");
 		write(MAIN + "User.java",
@@ -286,7 +293,7 @@ class ConservativeUnusedCodeAnalyzerTest {
 	}
 
 	@Test
-	void keepsNestedTypesWhoseVisibilityCannotBeJudgedLocally() throws Exception {
+	void keepsNestedTypesWhoseVisibilityCannotBeJudgedLocally() throws IOException {
 		write(MAIN + "Api.java",
 				"package com.example;\n\npublic interface Api {\n    class Impl implements Api { }\n    @interface Marker { }\n}\n");
 		write(MAIN + "Base.java",
@@ -298,7 +305,7 @@ class ConservativeUnusedCodeAnalyzerTest {
 	}
 
 	@Test
-	void treatsAnyNonPrivateMainMethodAsAnEntryPoint() throws Exception {
+	void treatsAnyNonPrivateMainMethodAsAnEntryPoint() throws IOException {
 		write(MAIN + "Modern.java", "package com.example;\n\nfinal class Modern {\n    void main() { }\n}\n");
 		write(MAIN + "Hidden.java",
 				"package com.example;\n\nfinal class Hidden {\n    private static void main(String[] args) { }\n}\n");
@@ -309,7 +316,7 @@ class ConservativeUnusedCodeAnalyzerTest {
 	}
 
 	@Test
-	void reportsVisibilityReductionForAConstantHolderUsedOnlyInsideItsPackage() throws Exception {
+	void reportsVisibilityReductionForAConstantHolderUsedOnlyInsideItsPackage() throws IOException {
 		write(MAIN + "Codes.java",
 				"package com.example;\n\npublic final class Codes {\n\n    public static final String DEFAULT = \"CHF\";\n\n    private Codes() {\n    }\n}\n");
 		write(MAIN + "User.java",
@@ -327,7 +334,7 @@ class ConservativeUnusedCodeAnalyzerTest {
 	}
 
 	@Test
-	void keepsVisibilityWhenReferencedFromAnotherPackageEvenIfOnlyFromTests() throws Exception {
+	void keepsVisibilityWhenReferencedFromAnotherPackageEvenIfOnlyFromTests() throws IOException {
 		write(MAIN + "Codes.java",
 				"package com.example;\n\npublic final class Codes {\n    public static final String DEFAULT = \"CHF\";\n    private Codes() { }\n}\n");
 		write(MAIN + "User.java",
@@ -339,7 +346,7 @@ class ConservativeUnusedCodeAnalyzerTest {
 	}
 
 	@Test
-	void keepsVisibilityForClassesWithAPublicConstructorInstanceApiOrNoReferences() throws Exception {
+	void keepsVisibilityForClassesWithAPublicConstructorInstanceApiOrNoReferences() throws IOException {
 		write(MAIN + "Model.java", "package com.example;\n\npublic final class Model {\n    public Model() { }\n}\n");
 		write(MAIN + "Registry.java",
 				"package com.example;\n\npublic final class Registry {\n    private Registry() { }\n    public static Registry get() { return new Registry(); }\n    public void register() { }\n}\n");
@@ -352,7 +359,7 @@ class ConservativeUnusedCodeAnalyzerTest {
 	}
 
 	@Test
-	void keepsVisibilityOfDocumentedPublicClassesBecauseJavadocMarksIntendedApi() throws Exception {
+	void keepsVisibilityOfDocumentedPublicClassesBecauseJavadocMarksIntendedApi() throws IOException {
 		write(MAIN + "Codes.java",
 				"package com.example;\n\n/**\n * Currency codes.\n */\npublic final class Codes {\n    public static final String DEFAULT = \"CHF\";\n    private Codes() { }\n}\n");
 		write(MAIN + "Other.java",
@@ -366,7 +373,7 @@ class ConservativeUnusedCodeAnalyzerTest {
 	}
 
 	@Test
-	void treesAreNeverCandidatesEvenWhenNestedUnderAMainSourceFolderName() throws Exception {
+	void treesAreNeverCandidatesEvenWhenNestedUnderAMainSourceFolderName() throws IOException {
 		write("src/test/resources/fixture/src/main/java/Dead.java", "final class Dead {\n}\n");
 		write(TEST + "Helper.java", "package com.example;\n\nfinal class Helper {\n    private int orphan;\n}\n");
 
@@ -377,7 +384,7 @@ class ConservativeUnusedCodeAnalyzerTest {
 	}
 
 	@Test
-	void keepsVisibilityWhenTheProjectDeclaresAModuleDescriptor() throws Exception {
+	void keepsVisibilityWhenTheProjectDeclaresAModuleDescriptor() throws IOException {
 		write(MAIN + "Codes.java",
 				"package com.example;\n\npublic final class Codes {\n    public static final String DEFAULT = \"CHF\";\n    private Codes() { }\n}\n");
 		write(MAIN + "User.java",
@@ -388,7 +395,7 @@ class ConservativeUnusedCodeAnalyzerTest {
 	}
 
 	@Test
-	void reportsUnusedMavenDependenciesAndKeepsImportedOnes() throws Exception {
+	void reportsUnusedMavenDependenciesAndKeepsImportedOnes() throws IOException {
 		write("pom.xml", """
 				<project>
 				    <modelVersion>4.0.0</modelVersion>
@@ -433,11 +440,17 @@ class ConservativeUnusedCodeAnalyzerTest {
 	}
 
 	@Test
-	void reportsUnusedGradleDependenciesDeclaredWithStringNotation() throws Exception {
-		write("build.gradle",
-				"plugins { id 'java' }\n\ndependencies {\n    implementation 'org.slf4j:slf4j-api:2.0.16'\n"
-						+ "    implementation 'commons-io:commons-io:2.17.0'\n    runtimeOnly 'com.h2database:h2:2.3.232'\n"
-						+ "    testImplementation 'org.junit.jupiter:junit-jupiter:5.11.0'\n}\n");
+	void reportsUnusedGradleDependenciesDeclaredWithStringNotation() throws IOException {
+		write("build.gradle", """
+				plugins { id 'java' }
+
+				dependencies {
+				    implementation 'org.slf4j:slf4j-api:2.0.16'
+				    implementation 'commons-io:commons-io:2.17.0'
+				    runtimeOnly 'com.h2database:h2:2.3.232'
+				    testImplementation 'org.junit.jupiter:junit-jupiter:5.11.0'
+				}
+				""");
 		write(MAIN + "App.java",
 				"package com.example;\n\nimport org.slf4j.Logger;\n\npublic class App {\n    Logger log;\n}\n");
 
@@ -448,7 +461,7 @@ class ConservativeUnusedCodeAnalyzerTest {
 	}
 
 	@Test
-	void countsDependencyUsageFromQualifiedNamesAndResources() throws Exception {
+	void countsDependencyUsageFromQualifiedNamesAndResources() throws IOException {
 		write("pom.xml", pomWith(
 				"<dependency><groupId>org.apache.commons</groupId><artifactId>commons-lang3</artifactId></dependency>"
 						+ "<dependency><groupId>org.postgresql</groupId><artifactId>postgresql</artifactId></dependency>"
@@ -461,7 +474,7 @@ class ConservativeUnusedCodeAnalyzerTest {
 	}
 
 	@Test
-	void excludedFilesAreNotCandidatesButStillCountAsReferences() throws Exception {
+	void excludedFilesAreNotCandidatesButStillCountAsReferences() throws IOException {
 		write(MAIN + "Generated.java",
 				"package com.example;\n\nfinal class Generated {\n    private int orphan;\n    Object h = new Helper();\n}\n");
 		write(MAIN + "Helper.java", "package com.example;\n\nfinal class Helper {\n}\n");
@@ -473,7 +486,7 @@ class ConservativeUnusedCodeAnalyzerTest {
 	}
 
 	@Test
-	void treatsAStructurallyUnparseableFileAsOpaqueButStillReadsItsReferences() throws Exception {
+	void treatsAStructurallyUnparseableFileAsOpaqueButStillReadsItsReferences() throws IOException {
 		write(MAIN + "Broken.java",
 				"package com.example;\n\nclass Broken {\n    private int orphan;\n    Helper h = ;;; {{{ \n");
 		write(MAIN + "Helper.java", "package com.example;\n\nfinal class Helper {\n}\n");
@@ -488,9 +501,15 @@ class ConservativeUnusedCodeAnalyzerTest {
 	}
 
 	@Test
-	void doesNotReportAMemberWhoseOnlyCallIsSpelledWithAUnicodeEscape() throws Exception {
-		write(MAIN + "Escaped.java", "package com.example;\n\npublic class Escaped {\n    private void helper() {}\n"
-				+ "    public void run() { \\u0068elper(); }\n}\n");
+	void doesNotReportAMemberWhoseOnlyCallIsSpelledWithAUnicodeEscape() throws IOException {
+		write(MAIN + "Escaped.java", """
+				package com.example;
+
+				public class Escaped {
+				    private void helper() {}
+				    public void run() { \\u0068elper(); }
+				}
+				""");
 
 		var report = analyze();
 
@@ -502,7 +521,7 @@ class ConservativeUnusedCodeAnalyzerTest {
 	}
 
 	@Test
-	void countsReferencesFromNonJavaSourcesUnderTheSourceTree() throws Exception {
+	void countsReferencesFromNonJavaSourcesUnderTheSourceTree() throws IOException {
 		write(MAIN + "Helper.java", "package com.example;\n\nfinal class Helper {\n}\n");
 		write("src/main/kotlin/com/example/App.kt", "package com.example\n\nval helper = Helper()\n");
 
@@ -510,7 +529,7 @@ class ConservativeUnusedCodeAnalyzerTest {
 	}
 
 	@Test
-	void ignoresBuildOutputDirectoriesAndFilesOutsideTheSourceTree() throws Exception {
+	void ignoresBuildOutputDirectoriesAndFilesOutsideTheSourceTree() throws IOException {
 		write(MAIN + "Dead.java", "package com.example;\n\nfinal class Dead {\n}\n");
 		write("target/classes/notes.txt", "Dead\n");
 		write("notes/expected.txt", "com.example.Dead\n");
@@ -519,7 +538,8 @@ class ConservativeUnusedCodeAnalyzerTest {
 	}
 
 	@Test
-	void countsReferencesFromBuildFilesAndConfigurationOutsideTheSourceTreeButNotFromDocumentation() throws Exception {
+	void countsReferencesFromBuildFilesAndConfigurationOutsideTheSourceTreeButNotFromDocumentation()
+			throws IOException {
 		for (var name : List.of("Activator", "Handler", "Listener", "Tool", "Dead")) {
 			write(MAIN + name + ".java", "package com.example;\n\nfinal class " + name + " {\n}\n");
 		}
@@ -527,17 +547,22 @@ class ConservativeUnusedCodeAnalyzerTest {
 		write("plugin.xml",
 				"<plugin>\n  <extension point=\"org.eclipse.ui.startup\">\n    <startup class=\"com.example.Handler\"/>\n  </extension>\n</plugin>\n");
 		write("config/application.yml", "listeners:\n  - com.example.Listener\n");
-		write("pom.xml",
-				"<project>\n  <modelVersion>4.0.0</modelVersion>\n  <groupId>com.example</groupId>\n"
-						+ "  <artifactId>app</artifactId>\n  <version>1</version>\n"
-						+ "  <properties><tool.class>com.example.Tool</tool.class></properties>\n</project>\n");
+		write("pom.xml", """
+				<project>
+				  <modelVersion>4.0.0</modelVersion>
+				  <groupId>com.example</groupId>
+				  <artifactId>app</artifactId>
+				  <version>1</version>
+				  <properties><tool.class>com.example.Tool</tool.class></properties>
+				</project>
+				""");
 		write("README.md", "`Dead` is documented here, which is not a reference.\n");
 
 		assertEquals(List.of("com.example.Dead"), symbols(analyze(), IssueType.UNUSED_CLASS));
 	}
 
 	@Test
-	void reportsAPrivateMethodWhoseOnlyReferenceIsItsOwnRecursion() throws Exception {
+	void reportsAPrivateMethodWhoseOnlyReferenceIsItsOwnRecursion() throws IOException {
 		write(MAIN + "Maths.java", """
 				package com.example;
 
@@ -565,7 +590,7 @@ class ConservativeUnusedCodeAnalyzerTest {
 	}
 
 	@Test
-	void ordersIssuesByFileLineAndColumnAndReportsCrlfPositionsCorrectly() throws Exception {
+	void ordersIssuesByFileLineAndColumnAndReportsCrlfPositionsCorrectly() throws IOException {
 		write(MAIN + "B.java",
 				"package com.example;\r\n\r\npublic class B {\r\n    private static int FIRST; private int second;\r\n}\r\n");
 		write(MAIN + "A.java", "package com.example;\n\nfinal class A {\n}\n");
@@ -579,7 +604,7 @@ class ConservativeUnusedCodeAnalyzerTest {
 	}
 
 	@Test
-	void analyzesEveryModuleOfAMultiModuleBuildFromItsRoot() throws Exception {
+	void analyzesEveryModuleOfAMultiModuleBuildFromItsRoot() throws IOException {
 		write("pom.xml", pomWith(""));
 		write("core/pom.xml",
 				pomWith("<dependency><groupId>commons-io</groupId><artifactId>commons-io</artifactId></dependency>"));
@@ -597,7 +622,7 @@ class ConservativeUnusedCodeAnalyzerTest {
 	}
 
 	@Test
-	void aModuleInsideAReactorSeesReferencesFromItsSiblingModules() throws Exception {
+	void aModuleInsideAReactorSeesReferencesFromItsSiblingModules() throws IOException {
 		write("pom.xml", aggregatorPom("core", "app"));
 		write("core/pom.xml", pomWith(
 				"<dependency><groupId>com.google.code.gson</groupId><artifactId>gson</artifactId></dependency>"));
@@ -617,7 +642,7 @@ class ConservativeUnusedCodeAnalyzerTest {
 	}
 
 	@Test
-	void aNestedBuildTheEnclosingPomDoesNotListIsAnalyzedOnItsOwn() throws Exception {
+	void aNestedBuildTheEnclosingPomDoesNotListIsAnalyzedOnItsOwn() throws IOException {
 		write("pom.xml", aggregatorPom("core"));
 		write("core/pom.xml", pomWith(""));
 		write("core/src/main/java/com/example/core/Consumer.java",
@@ -637,7 +662,7 @@ class ConservativeUnusedCodeAnalyzerTest {
 	}
 
 	@Test
-	void aModuleDescriptorPinsVisibilityOnlyInsideItsOwnModule() throws Exception {
+	void aModuleDescriptorPinsVisibilityOnlyInsideItsOwnModule() throws IOException {
 		write("pom.xml", aggregatorPom("modular", "plain"));
 		for (var module : List.of("modular", "plain")) {
 			var holder = module.equals("modular") ? "Codes" : "Flags";
@@ -662,7 +687,7 @@ class ConservativeUnusedCodeAnalyzerTest {
 	}
 
 	@Test
-	void aModuleWithoutABuildFileAboveItIsAnalyzedOnItsOwn() throws Exception {
+	void aModuleWithoutABuildFileAboveItIsAnalyzedOnItsOwn() throws IOException {
 		write("projects/lib/pom.xml", pomWith(""));
 		write("projects/lib/src/main/java/com/example/Codes.java",
 				"package com.example;\n\npublic final class Codes {\n    public static final String DEFAULT = \"x\";\n    private Codes() { }\n}\n");
@@ -678,7 +703,7 @@ class ConservativeUnusedCodeAnalyzerTest {
 	}
 
 	@Test
-	void ignoresBuildFilesInsideSourceTreesAndReportsEachDeclarationSeparately() throws Exception {
+	void ignoresBuildFilesInsideSourceTreesAndReportsEachDeclarationSeparately() throws IOException {
 		write("pom.xml",
 				pomWith("<dependency><groupId>commons-io</groupId><artifactId>commons-io</artifactId></dependency>"));
 		write("lib/pom.xml",
@@ -694,7 +719,7 @@ class ConservativeUnusedCodeAnalyzerTest {
 	}
 
 	@Test
-	void summaryNamesTheRootTheFileCountAndTheIssueCount() throws Exception {
+	void summaryNamesTheRootTheFileCountAndTheIssueCount() throws IOException {
 		write(MAIN + "Dead.java", "package com.example;\n\nfinal class Dead {\n}\n");
 		write(MAIN + "Live.java", "package com.example;\n\npublic class Live {\n}\n");
 
@@ -722,7 +747,7 @@ class ConservativeUnusedCodeAnalyzerTest {
 	}
 
 	@Test
-	void keepsAPrivateMethodWhoseParameterIsAnnotated() throws Exception {
+	void keepsAPrivateMethodWhoseParameterIsAnnotated() throws IOException {
 		write(MAIN + "Lifecycle.java", """
 				package com.example;
 
@@ -742,7 +767,7 @@ class ConservativeUnusedCodeAnalyzerTest {
 	}
 
 	@Test
-	void explainNamesTheGuardThatKeptEveryCandidateAndStaysSilentAboutReferencedCode() throws Exception {
+	void explainNamesTheGuardThatKeptEveryCandidateAndStaysSilentAboutReferencedCode() throws IOException {
 		write(MAIN + "Launcher.java",
 				"package com.example;\n\nfinal class Launcher {\n    public static void main(String[] a) { }\n}\n");
 		write(MAIN + "Model.java", """
@@ -759,10 +784,23 @@ class ConservativeUnusedCodeAnalyzerTest {
 				    public void run() { used(); }
 				}
 				""");
-		write(MAIN + "Codes.java", "package com.example;\n\n/** Documented. */\npublic final class Codes {\n"
-				+ "    public static final String DEFAULT = \"x\";\n    private Codes() { }\n}\n");
-		write(MAIN + "User.java", "package com.example;\n\npublic class User {\n    String s = Codes.DEFAULT;\n"
-				+ "    Object o = Class.forName(\"com.example.Reflected\");\n}\n");
+		write(MAIN + "Codes.java", """
+				package com.example;
+
+				/** Documented. */
+				public final class Codes {
+				    public static final String DEFAULT = "x";
+				    private Codes() { }
+				}
+				""");
+		write(MAIN + "User.java", """
+				package com.example;
+
+				public class User {
+				    String s = Codes.DEFAULT;
+				    Object o = Class.forName("com.example.Reflected");
+				}
+				""");
 		write(MAIN + "Reflected.java", "package com.example;\n\nfinal class Reflected {\n}\n");
 
 		var report = new ConservativeUnusedCodeAnalyzer().analyze(AnalysisConfig.defaultFor(root).withExplain(true));
@@ -794,7 +832,7 @@ class ConservativeUnusedCodeAnalyzerTest {
 	}
 
 	@Test
-	void explainNamesTheReasonADependencyIsNeverACandidate() throws Exception {
+	void explainNamesTheReasonADependencyIsNeverACandidate() throws IOException {
 		write("pom.xml", pomWith(
 				"<dependency><groupId>org.postgresql</groupId><artifactId>postgresql</artifactId><scope>runtime</scope></dependency>"
 						+ "<dependency><groupId>com.h2database</groupId><artifactId>h2</artifactId></dependency>"
@@ -821,7 +859,7 @@ class ConservativeUnusedCodeAnalyzerTest {
 	}
 
 	@Test
-	void keptStaysEmptyUnlessExplanationsAreRequested() throws Exception {
+	void keptStaysEmptyUnlessExplanationsAreRequested() throws IOException {
 		write(MAIN + "Launcher.java",
 				"package com.example;\n\nfinal class Launcher {\n    public static void main(String[] a) { }\n}\n");
 
@@ -829,13 +867,25 @@ class ConservativeUnusedCodeAnalyzerTest {
 	}
 
 	@Test
-	void aPublicClassStaysPublicWhenOnlyATestInAnotherPackageUsesItEvenWithTestReferencesExcluded() throws Exception {
-		write(MAIN + "Codes.java", "package com.example;\n\npublic final class Codes {\n"
-				+ "    public static final String DEFAULT = \"x\";\n    private Codes() { }\n}\n");
+	void aPublicClassStaysPublicWhenOnlyATestInAnotherPackageUsesItEvenWithTestReferencesExcluded() throws IOException {
+		write(MAIN + "Codes.java", """
+				package com.example;
+
+				public final class Codes {
+				    public static final String DEFAULT = "x";
+				    private Codes() { }
+				}
+				""");
 		write(MAIN + "User.java", "package com.example;\n\npublic class User {\n    String s = Codes.DEFAULT;\n}\n");
-		write("src/test/java/com/other/CodesTest.java",
-				"package com.other;\n\nimport com.example.Codes;\n\nclass CodesTest {\n"
-						+ "    String s = Codes.DEFAULT;\n}\n");
+		write("src/test/java/com/other/CodesTest.java", """
+				package com.other;
+
+				import com.example.Codes;
+
+				class CodesTest {
+				    String s = Codes.DEFAULT;
+				}
+				""");
 
 		var report = new ConservativeUnusedCodeAnalyzer()
 			.analyze(AnalysisConfig.defaultFor(root).withIncludeTestReferences(false));
@@ -844,12 +894,23 @@ class ConservativeUnusedCodeAnalyzerTest {
 	}
 
 	@Test
-	void aPublicClassNamedInATestLiteralStaysPublicEvenWithTestReferencesExcluded() throws Exception {
-		write(MAIN + "Codes.java", "package com.example;\n\npublic final class Codes {\n"
-				+ "    public static final String DEFAULT = \"x\";\n    private Codes() { }\n}\n");
+	void aPublicClassNamedInATestLiteralStaysPublicEvenWithTestReferencesExcluded() throws IOException {
+		write(MAIN + "Codes.java", """
+				package com.example;
+
+				public final class Codes {
+				    public static final String DEFAULT = "x";
+				    private Codes() { }
+				}
+				""");
 		write(MAIN + "User.java", "package com.example;\n\npublic class User {\n    String s = Codes.DEFAULT;\n}\n");
-		write("src/test/java/com/other/ReflectionTest.java", "package com.other;\n\nclass ReflectionTest {\n"
-				+ "    Object o = Class.forName(\"com.example.Codes\");\n}\n");
+		write("src/test/java/com/other/ReflectionTest.java", """
+				package com.other;
+
+				class ReflectionTest {
+				    Object o = Class.forName("com.example.Codes");
+				}
+				""");
 
 		var excluded = new ConservativeUnusedCodeAnalyzer()
 			.analyze(AnalysisConfig.defaultFor(root).withIncludeTestReferences(false));
@@ -862,10 +923,15 @@ class ConservativeUnusedCodeAnalyzerTest {
 	}
 
 	@Test
-	void aPrivateMemberNamedOnlyInATestLiteralIsReportedWhenTestReferencesAreExcluded() throws Exception {
+	void aPrivateMemberNamedOnlyInATestLiteralIsReportedWhenTestReferencesAreExcluded() throws IOException {
 		write(MAIN + "App.java", "package com.example;\n\npublic class App {\n    private void helper() { }\n}\n");
-		write(TEST + "AppTest.java", "package com.example;\n\nclass AppTest {\n"
-				+ "    Object m = App.class.getDeclaredMethod(\"helper\");\n}\n");
+		write(TEST + "AppTest.java", """
+				package com.example;
+
+				class AppTest {
+				    Object m = App.class.getDeclaredMethod("helper");
+				}
+				""");
 
 		var included = analyze();
 		var excluded = new ConservativeUnusedCodeAnalyzer()
@@ -877,7 +943,7 @@ class ConservativeUnusedCodeAnalyzerTest {
 	}
 
 	@Test
-	void aNestedTypeReferencedOnlyFromTestsSaysSoWhenTestReferencesAreExcluded() throws Exception {
+	void aNestedTypeReferencedOnlyFromTestsSaysSoWhenTestReferencesAreExcluded() throws IOException {
 		write(MAIN + "Outer.java",
 				"package com.example;\n\npublic class Outer {\n    static final class Fixture {\n    }\n}\n");
 		write(TEST + "OuterTest.java",
@@ -895,17 +961,45 @@ class ConservativeUnusedCodeAnalyzerTest {
 	// a
 	// jmh or latest source set stays a caller.
 	@Test
-	void everySourceSetNamedLikeATestCountsAsTestSourceAndOtherSourceSetsAsMainSource() throws Exception {
-		write(MAIN + "App.java", "package com.example;\n\npublic class App {\n    private void helper() { }\n"
-				+ "    private void fixture() { }\n    private void bench() { }\n    private void newest() { }\n}\n");
-		write("src/integrationTest/java/com/example/AppIT.java", "package com.example;\n\nclass AppIT {\n"
-				+ "    Object m = App.class.getDeclaredMethod(\"helper\");\n}\n");
-		write("src/testFixtures/java/com/example/AppFixtures.java", "package com.example;\n\nclass AppFixtures {\n"
-				+ "    Object m = App.class.getDeclaredMethod(\"fixture\");\n}\n");
-		write("src/jmh/java/com/example/AppBench.java", "package com.example;\n\nclass AppBench {\n"
-				+ "    Object m = App.class.getDeclaredMethod(\"bench\");\n}\n");
-		write("src/latest/java/com/example/AppLatest.java", "package com.example;\n\nclass AppLatest {\n"
-				+ "    Object m = App.class.getDeclaredMethod(\"newest\");\n}\n");
+	void everySourceSetNamedLikeATestCountsAsTestSourceAndOtherSourceSetsAsMainSource() throws IOException {
+		write(MAIN + "App.java", """
+				package com.example;
+
+				public class App {
+				    private void helper() { }
+				    private void fixture() { }
+				    private void bench() { }
+				    private void newest() { }
+				}
+				""");
+		write("src/integrationTest/java/com/example/AppIT.java", """
+				package com.example;
+
+				class AppIT {
+				    Object m = App.class.getDeclaredMethod("helper");
+				}
+				""");
+		write("src/testFixtures/java/com/example/AppFixtures.java", """
+				package com.example;
+
+				class AppFixtures {
+				    Object m = App.class.getDeclaredMethod("fixture");
+				}
+				""");
+		write("src/jmh/java/com/example/AppBench.java", """
+				package com.example;
+
+				class AppBench {
+				    Object m = App.class.getDeclaredMethod("bench");
+				}
+				""");
+		write("src/latest/java/com/example/AppLatest.java", """
+				package com.example;
+
+				class AppLatest {
+				    Object m = App.class.getDeclaredMethod("newest");
+				}
+				""");
 
 		var included = analyze();
 		var excluded = new ConservativeUnusedCodeAnalyzer()
@@ -920,7 +1014,7 @@ class ConservativeUnusedCodeAnalyzerTest {
 	}
 
 	@Test
-	void baselineSuppressesListedFindingsCountsThemInTheSummaryAndExplainsThem() throws Exception {
+	void baselineSuppressesListedFindingsCountsThemInTheSummaryAndExplainsThem() throws IOException {
 		write(MAIN + "App.java",
 				"package com.example;\n\npublic class App {\n    private void helper() { }\n    private int orphan;\n}\n");
 		write("prune-baseline.txt",
@@ -938,7 +1032,7 @@ class ConservativeUnusedCodeAnalyzerTest {
 	}
 
 	@Test
-	void theBaselineFileIsNotReadAsAReferenceSourceEvenUnderTheSourceTree() throws Exception {
+	void theBaselineFileIsNotReadAsAReferenceSourceEvenUnderTheSourceTree() throws IOException {
 		write(MAIN + "App.java", "package com.example;\n\npublic class App {\n    private void helper() { }\n}\n");
 		write("src/main/resources/accepted.txt", "UNUSED_METHOD com.example.App#helper\n");
 		var baseline = root.resolve("src/main/resources/accepted.txt");
@@ -954,7 +1048,7 @@ class ConservativeUnusedCodeAnalyzerTest {
 	}
 
 	@Test
-	void withoutABaselineNothingIsSuppressedAndTheSummaryDoesNotMentionOne() throws Exception {
+	void withoutABaselineNothingIsSuppressedAndTheSummaryDoesNotMentionOne() throws IOException {
 		write(MAIN + "App.java", "package com.example;\n\npublic class App {\n    private void helper() { }\n}\n");
 		write("prune-baseline.txt", "UNUSED_METHOD com.example.App#helper\n");
 
@@ -966,7 +1060,7 @@ class ConservativeUnusedCodeAnalyzerTest {
 	}
 
 	@Test
-	void aMalformedBaselineFailsTheAnalysisWithItsLocation() throws Exception {
+	void aMalformedBaselineFailsTheAnalysisWithItsLocation() throws IOException {
 		write(MAIN + "App.java", "package com.example;\n\npublic class App {\n}\n");
 		write("prune-baseline.txt", "UNUSED_METHOD\n");
 
@@ -982,7 +1076,7 @@ class ConservativeUnusedCodeAnalyzerTest {
 
 	private void write(String relativePath, String content) throws IOException {
 		var file = root.resolve(relativePath);
-		Files.createDirectories(file.getParent());
+		Files.createDirectories(Objects.requireNonNull(file.getParent()));
 		Files.write(file, content.getBytes(StandardCharsets.UTF_8));
 	}
 

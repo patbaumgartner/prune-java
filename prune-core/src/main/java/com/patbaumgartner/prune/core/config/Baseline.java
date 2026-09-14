@@ -58,7 +58,7 @@ public final class Baseline {
 			if (line.isEmpty() || line.startsWith("#")) {
 				continue;
 			}
-			String[] columns = line.split("\\s+");
+			String[] columns = line.split("\\s+", -1);
 			if (columns.length != 2) {
 				throw new IllegalArgumentException(
 						source + ":" + lineNumber + ": expected \"TYPE symbol\" but found \"" + line + "\"");
@@ -67,7 +67,8 @@ public final class Baseline {
 				IssueType.valueOf(columns[0]);
 			}
 			catch (IllegalArgumentException unknownType) {
-				throw new IllegalArgumentException(source + ":" + lineNumber + ": unknown issue type " + columns[0]);
+				throw new IllegalArgumentException(source + ":" + lineNumber + ": unknown issue type " + columns[0],
+						unknownType);
 			}
 			entries.add(key(columns[0], columns[1]));
 		}

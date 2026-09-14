@@ -10,7 +10,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 // Usage is decided from imports, qualified names, string literals, and resources.
@@ -18,8 +17,6 @@ import java.util.regex.Pattern;
 // counts as used when any distinctive coordinate token appears as a package segment.
 // Doubt resolves towards "used".
 public final class DependencyUsage {
-
-	private static final Pattern DOTTED_NAME = Pattern.compile("[A-Za-z_$][\\w$]*(?:\\.[A-Za-z_$][\\w$]*)+");
 
 	private static final Pattern TOKEN_SEPARATOR = Pattern.compile("[.\\-_]+");
 
@@ -91,7 +88,7 @@ public final class DependencyUsage {
 			return Optional
 				.of(new Reason("runtime-only", "it is a runtime-only artifact that is loaded, not imported"));
 		}
-		for (String token : TOKEN_SEPARATOR.split(artifact)) {
+		for (String token : TOKEN_SEPARATOR.split(artifact, -1)) {
 			if (RUNTIME_MARKERS.contains(token)) {
 				return Optional
 					.of(new Reason("runtime-only", "its artifact name marks it as runtime-only (" + token + ")"));
@@ -134,7 +131,7 @@ public final class DependencyUsage {
 	static Set<String> coordinateTokens(DeclaredDependency dependency) {
 		Set<String> tokens = new HashSet<>();
 		for (String raw : List.of(dependency.groupId(), dependency.artifactId())) {
-			for (String token : TOKEN_SEPARATOR.split(raw.toLowerCase(Locale.ROOT))) {
+			for (String token : TOKEN_SEPARATOR.split(raw.toLowerCase(Locale.ROOT), -1)) {
 				if (token.length() >= 2 && !GENERIC_TOKENS.contains(token)
 						&& !token.chars().allMatch(Character::isDigit)) {
 					tokens.add(token);
@@ -161,7 +158,7 @@ public final class DependencyUsage {
 		for (ScannedProject.ResourceFile resource : project.resources()) {
 			addDottedNames(segments, names, resource.content());
 			String fileName = resource.relativePath().substring(resource.relativePath().lastIndexOf('/') + 1);
-			for (String token : TOKEN_SEPARATOR.split(fileName.toLowerCase(Locale.ROOT))) {
+			for (String token : TOKEN_SEPARATOR.split(fileName.toLowerCase(Locale.ROOT), -1)) {
 				if (!token.isEmpty()) {
 					segments.add(token);
 				}
@@ -180,11 +177,48 @@ public final class DependencyUsage {
 		}
 	}
 
+	// A dotted name is two or more ASCII identifiers joined by single dots, found
+	// anywhere
+	// in free text: "see org.example.Api." yields org.example.Api. Scanned by hand so the
+	// cost stays linear in the text, whatever it contains.
 	private static void addDottedNames(Set<String> segments, Set<String> names, String text) {
-		Matcher matcher = DOTTED_NAME.matcher(text);
-		while (matcher.find()) {
-			add(segments, names, matcher.group());
+		int length = text.length();
+		int position = 0;
+		while (position < length) {
+			if (!isNameStart(text.charAt(position))) {
+				position++;
+				continue;
+			}
+			int end = nameEnd(text, position);
+			int dots = 0;
+			while (end + 1 < length && text.charAt(end) == '.' && isNameStart(text.charAt(end + 1))) {
+				end = nameEnd(text, end + 1);
+				dots++;
+			}
+			if (dots > 0) {
+				add(segments, names, text.substring(position, end));
+				position = end;
+			}
+			else {
+				position++;
+			}
 		}
+	}
+
+	private static int nameEnd(String text, int start) {
+		int end = start + 1;
+		while (end < text.length() && isNamePart(text.charAt(end))) {
+			end++;
+		}
+		return end;
+	}
+
+	private static boolean isNameStart(char c) {
+		return c == '_' || c == '$' || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
+	}
+
+	private static boolean isNamePart(char c) {
+		return isNameStart(c) || (c >= '0' && c <= '9');
 	}
 
 	private static void add(Set<String> segments, Set<String> names, String qualifiedName) {
@@ -192,7 +226,7 @@ public final class DependencyUsage {
 			return;
 		}
 		names.add(qualifiedName);
-		for (String segment : qualifiedName.split("\\.")) {
+		for (String segment : qualifiedName.split("\\.", -1)) {
 			if (!segment.isEmpty() && !"*".equals(segment)) {
 				segments.add(segment.toLowerCase(Locale.ROOT));
 			}

@@ -1,5 +1,7 @@
 package com.patbaumgartner.prune.core.source;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -63,20 +65,26 @@ public final class JavaSourceParser {
 		List<String> qualifiedNames = qualifiedNames(significant);
 
 		JavaSourceParser parser = new JavaSourceParser(significant, documentedStarts, content.length());
+		// Outside literals and comments a backslash can only start a unicode escape,
+		// which
+		// this parser does not translate, so an escaped identifier letter would hide a
+		// real
+		// reference.
+		boolean unicodeEscape = significant.stream().anyMatch(token -> token.isPunctuation('\\'));
+		boolean structural = !unicodeEscape && parser.parses();
+		return new JavaSourceFile(relativePath, content, parser.packageName, parser.imports, qualifiedNames,
+				structural ? parser.types : List.of(), identifiers, strings, !structural, parser.moduleDescriptor);
+	}
+
+	// False marks the file opaque: its identifiers still count as references, but nothing
+	// in it becomes a candidate.
+	private boolean parses() {
 		try {
-			// Outside literals and comments a backslash can only start a unicode escape,
-			// which this parser does not translate, so an escaped identifier letter would
-			// hide a real reference.
-			if (significant.stream().anyMatch(token -> token.isPunctuation('\\'))) {
-				throw new ParseException("unicode escape outside a literal");
-			}
-			parser.parseCompilationUnit();
-			return new JavaSourceFile(relativePath, content, parser.packageName, parser.imports, qualifiedNames,
-					parser.types, identifiers, strings, false, parser.moduleDescriptor);
+			parseCompilationUnit();
+			return true;
 		}
 		catch (RuntimeException structurallyUnparseable) {
-			return new JavaSourceFile(relativePath, content, parser.packageName, parser.imports, qualifiedNames,
-					List.of(), identifiers, strings, true, parser.moduleDescriptor);
+			return false;
 		}
 	}
 
@@ -130,17 +138,17 @@ public final class JavaSourceParser {
 			}
 			int start = pos;
 			skipAnnotations();
-			if (peek().isIdentifier("module") && peek(1).kind() == TokenKind.IDENTIFIER
-					|| peek().isIdentifier("open") && peek(1).isIdentifier("module")) {
+			if ((peek().isIdentifier("module") && peek(1).kind() == TokenKind.IDENTIFIER)
+					|| (peek().isIdentifier("open") && peek(1).isIdentifier("module"))) {
 				moduleDescriptor = true;
 				return;
 			}
 			pos = start;
-			types.add(parseType(null));
+			types.add(parseType());
 		}
 	}
 
-	private TypeDeclaration parseType(String enclosingName) {
+	private TypeDeclaration parseType() {
 		int start = peek().start();
 		List<String> modifiers = new ArrayList<>();
 		boolean annotated = false;
@@ -267,7 +275,7 @@ public final class JavaSourceParser {
 			if (token.isPunctuation('@')) {
 				if (peek(1).isKeyword("interface")) {
 					pos = save;
-					nested.add(parseType(typeName));
+					nested.add(parseType());
 					return;
 				}
 				skipAnnotation();
@@ -280,10 +288,10 @@ public final class JavaSourceParser {
 				modifiers.add(readSealedModifier());
 			}
 			else if (token.isKeyword("class") || token.isKeyword("interface") || token.isKeyword("enum")
-					|| token.isIdentifier("record") && peek(1).kind() == TokenKind.IDENTIFIER
-							&& (peek(2).isPunctuation('(') || peek(2).isPunctuation('<'))) {
+					|| (token.isIdentifier("record") && peek(1).kind() == TokenKind.IDENTIFIER
+							&& (peek(2).isPunctuation('(') || peek(2).isPunctuation('<')))) {
 				pos = save;
-				nested.add(parseType(typeName));
+				nested.add(parseType());
 				return;
 			}
 			else if (token.isPunctuation('{')) {
@@ -300,7 +308,7 @@ public final class JavaSourceParser {
 			}
 		}
 
-		Token name = null;
+		@Nullable Token name = null;
 		int identifierCount = 0;
 		boolean sawTypeKeyword = false;
 		int angleDepth = 0;
@@ -467,10 +475,7 @@ public final class JavaSourceParser {
 		if (beforeChain.isKeyword("new")) {
 			return after.isPunctuation('(') || after.isPunctuation('[');
 		}
-		if (beforeChain.isKeyword("instanceof")) {
-			return true;
-		}
-		return after.isPunctuation(':') && peek(close + 2).isPunctuation(':');
+		return beforeChain.isKeyword("instanceof") || (after.isPunctuation(':') && peek(close + 2).isPunctuation(':'));
 	}
 
 	// Offset from pos of the `>` that closes the run starting at pos, or -1 when the run

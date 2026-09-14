@@ -47,6 +47,16 @@
           <goalPrefix>prune</goalPrefix>
         </configuration>
       </plugin>
+      <!-- Mojos report through the Maven log, never through System.out. -->
+      <plugin>
+        <groupId>de.thetaphi</groupId>
+        <artifactId>forbiddenapis</artifactId>
+        <configuration>
+          <bundledSignatures combine.children="append">
+            <bundledSignature>jdk-system-out</bundledSignature>
+          </bundledSignatures>
+        </configuration>
+      </plugin>
 
       <!--
         Integration tests: invokes the packaged plugin against samples/maven-sample

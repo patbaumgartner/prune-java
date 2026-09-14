@@ -6,6 +6,8 @@ import com.patbaumgartner.prune.core.report.Severity;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -74,11 +76,11 @@ class BaselineTest {
 	}
 
 	@Test
-	void aMissingFileLoadsAsAnEmptyBaseline() throws Exception {
+	void aMissingFileLoadsAsAnEmptyBaseline() throws IOException {
 		assertEquals(0, Baseline.load(dir.resolve("prune-baseline.txt")).size());
 		assertEquals(0, Baseline.empty().size());
 
-		Files.writeString(dir.resolve("prune-baseline.txt"), "UNUSED_CLASS com.example.Dead\n");
+		Files.writeString(dir.resolve("prune-baseline.txt"), "UNUSED_CLASS com.example.Dead\n", StandardCharsets.UTF_8);
 
 		assertEquals(1, Baseline.load(dir.resolve("prune-baseline.txt")).size());
 	}

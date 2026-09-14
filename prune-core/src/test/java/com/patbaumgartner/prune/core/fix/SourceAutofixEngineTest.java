@@ -16,6 +16,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.util.List;
+import java.util.Objects;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -30,7 +31,7 @@ class SourceAutofixEngineTest {
 	Path root;
 
 	@Test
-	void removesUnusedPrivateMembersTogetherWithAttachedCommentsAndSurroundingBlankLine() throws Exception {
+	void removesUnusedPrivateMembersTogetherWithAttachedCommentsAndSurroundingBlankLine() throws IOException {
 		var file = write(MAIN + "Service.java", """
 				package com.example;
 
@@ -65,11 +66,11 @@ class SourceAutofixEngineTest {
 				        return "x";
 				    }
 				}
-				""", Files.readString(file));
+				""", Files.readString(file, StandardCharsets.UTF_8));
 	}
 
 	@Test
-	void removesOnlyTheMemberWhenItSharesALineAndKeepsMultiDeclaratorFields() throws Exception {
+	void removesOnlyTheMemberWhenItSharesALineAndKeepsMultiDeclaratorFields() throws IOException {
 		var file = write(MAIN + "Pair.java",
 				"package com.example;\n\npublic class Pair {\n    private int a, b; private int c; int used() { return 1; }\n}\n");
 
@@ -78,11 +79,11 @@ class SourceAutofixEngineTest {
 		assertEquals(List.of("com.example.Pair#a", "com.example.Pair#b"),
 				remaining.issues().stream().map(AnalysisIssue::symbol).toList());
 		assertEquals("package com.example;\n\npublic class Pair {\n    private int a, b; int used() { return 1; }\n}\n",
-				Files.readString(file));
+				Files.readString(file, StandardCharsets.UTF_8));
 	}
 
 	@Test
-	void reducesVisibilityByDroppingThePublicModifier() throws Exception {
+	void reducesVisibilityByDroppingThePublicModifier() throws IOException {
 		var codes = write(MAIN + "Codes.java",
 				"package com.example;\n\npublic final class Codes {\n    public static final String DEFAULT = \"CHF\";\n    private Codes() { }\n}\n");
 		write(MAIN + "User.java",
@@ -93,11 +94,11 @@ class SourceAutofixEngineTest {
 		assertEquals(List.of(), remaining.issues());
 		assertEquals(
 				"package com.example;\n\nfinal class Codes {\n    public static final String DEFAULT = \"CHF\";\n    private Codes() { }\n}\n",
-				Files.readString(codes));
+				Files.readString(codes, StandardCharsets.UTF_8));
 	}
 
 	@Test
-	void removesUnusedMavenDependenciesWithTheirLeadingCommentAndBlankLine() throws Exception {
+	void removesUnusedMavenDependenciesWithTheirLeadingCommentAndBlankLine() throws IOException {
 		var pom = write("pom.xml", """
 				<project>
 				    <modelVersion>4.0.0</modelVersion>
@@ -140,15 +141,23 @@ class SourceAutofixEngineTest {
 				        </dependency>
 				    </dependencies>
 				</project>
-				""", Files.readString(pom));
+				""", Files.readString(pom, StandardCharsets.UTF_8));
 	}
 
 	@Test
-	void removesUnusedGradleDependencyLines() throws Exception {
-		var build = write("build.gradle",
-				"plugins { id 'java' }\n\ndependencies {\n    implementation 'org.slf4j:slf4j-api:2.0.16'\n"
-						+ "    // unused\n    implementation 'commons-io:commons-io:2.17.0'\n    implementation('com.google.guava:guava:33.0.0-jre') {\n"
-						+ "        exclude group: 'x'\n    }\n}\n");
+	void removesUnusedGradleDependencyLines() throws IOException {
+		var build = write("build.gradle", """
+				plugins { id 'java' }
+
+				dependencies {
+				    implementation 'org.slf4j:slf4j-api:2.0.16'
+				    // unused
+				    implementation 'commons-io:commons-io:2.17.0'
+				    implementation('com.google.guava:guava:33.0.0-jre') {
+				        exclude group: 'x'
+				    }
+				}
+				""");
 		write(MAIN + "App.java",
 				"package com.example;\n\nimport org.slf4j.Logger;\n\npublic class App {\n    Logger log;\n}\n");
 
@@ -156,11 +165,11 @@ class SourceAutofixEngineTest {
 
 		assertEquals(List.of(), remaining.issues());
 		assertEquals("plugins { id 'java' }\n\ndependencies {\n    implementation 'org.slf4j:slf4j-api:2.0.16'\n}\n",
-				Files.readString(build));
+				Files.readString(build, StandardCharsets.UTF_8));
 	}
 
 	@Test
-	void leavesUnusedClassesForAHumanAndPlansNothingForThem() throws Exception {
+	void leavesUnusedClassesForAHumanAndPlansNothingForThem() throws IOException {
 		var dead = write(MAIN + "Dead.java", "package com.example;\n\nfinal class Dead {\n}\n");
 
 		var remaining = fix();
@@ -171,7 +180,7 @@ class SourceAutofixEngineTest {
 	}
 
 	@Test
-	void removesImportsThatOnlyTheRemovedMemberNeededAndKeepsTheRest() throws Exception {
+	void removesImportsThatOnlyTheRemovedMemberNeededAndKeepsTheRest() throws IOException {
 		var file = write(MAIN + "Service.java", """
 				package com.example;
 
@@ -218,22 +227,22 @@ class SourceAutofixEngineTest {
 				        return List.of(requireNonNull(o).toString());
 				    }
 				}
-				""", Files.readString(file));
+				""", Files.readString(file, StandardCharsets.UTF_8));
 	}
 
 	@Test
-	void leavesImportsThatWereAlreadyUnusedBeforeTheFixAlone() throws Exception {
+	void leavesImportsThatWereAlreadyUnusedBeforeTheFixAlone() throws IOException {
 		var file = write(MAIN + "Service.java",
 				"package com.example;\n\nimport java.util.Map;\n\npublic class Service {\n    private int orphan;\n}\n");
 
 		fix();
 
 		assertEquals("package com.example;\n\nimport java.util.Map;\n\npublic class Service {\n}\n",
-				Files.readString(file));
+				Files.readString(file, StandardCharsets.UTF_8));
 	}
 
 	@Test
-	void removesConsecutiveOrphanedImportsAsOneBlockWithoutLeavingDoubledBlankLines() throws Exception {
+	void removesConsecutiveOrphanedImportsAsOneBlockWithoutLeavingDoubledBlankLines() throws IOException {
 		var file = write(MAIN + "Service.java", """
 				package com.example;
 
@@ -252,11 +261,12 @@ class SourceAutofixEngineTest {
 				List.of("Remove import java.util.ArrayDeque, java.util.Deque left unused",
 						"Remove unused private field orphan"),
 				plan.actions().stream().map(FixAction::description).toList());
-		assertEquals("package com.example;\n\npublic class Service {\n}\n", Files.readString(file));
+		assertEquals("package com.example;\n\npublic class Service {\n}\n",
+				Files.readString(file, StandardCharsets.UTF_8));
 	}
 
 	@Test
-	void preservesCrlfLineEndingsWhenRemovingMembers() throws Exception {
+	void preservesCrlfLineEndingsWhenRemovingMembers() throws IOException {
 		var file = write(MAIN + "Service.java",
 				"package com.example;\r\n\r\npublic class Service {\r\n\r\n    private int orphan;\r\n\r\n    public int live() {\r\n        return 1;\r\n    }\r\n}\r\n");
 
@@ -265,11 +275,11 @@ class SourceAutofixEngineTest {
 		assertEquals(List.of(), remaining.issues());
 		assertEquals(
 				"package com.example;\r\n\r\npublic class Service {\r\n\r\n    public int live() {\r\n        return 1;\r\n    }\r\n}\r\n",
-				Files.readString(file));
+				Files.readString(file, StandardCharsets.UTF_8));
 	}
 
 	@Test
-	void removesAMultiLineXmlCommentAttachedToAnUnusedDependency() throws Exception {
+	void removesAMultiLineXmlCommentAttachedToAnUnusedDependency() throws IOException {
 		var pom = write("pom.xml", """
 				<project>
 				    <modelVersion>4.0.0</modelVersion>
@@ -302,11 +312,11 @@ class SourceAutofixEngineTest {
 				    <dependencies>
 				    </dependencies>
 				</project>
-				""", Files.readString(pom));
+				""", Files.readString(pom, StandardCharsets.UTF_8));
 	}
 
 	@Test
-	void importCleanupIsPartOfTheSameIssueSoASingleIssuePlanCarriesBothEdits() throws Exception {
+	void importCleanupIsPartOfTheSameIssueSoASingleIssuePlanCarriesBothEdits() throws IOException {
 		write(MAIN + "Service.java",
 				"package com.example;\n\nimport java.util.Set;\n\npublic class Service {\n    private Set<String> orphan;\n}\n");
 
@@ -318,7 +328,7 @@ class SourceAutofixEngineTest {
 	}
 
 	@Test
-	void rewritesKeepTheFilePermissionsAndLeaveNoTemporaryFileBehind() throws Exception {
+	void rewritesKeepTheFilePermissionsAndLeaveNoTemporaryFileBehind() throws IOException {
 		var file = write(MAIN + "Service.java",
 				"package com.example;\n\npublic class Service {\n    private int orphan;\n}\n");
 		assumeTrue(FileSystems.getDefault().supportedFileAttributeViews().contains("posix"));
@@ -328,20 +338,22 @@ class SourceAutofixEngineTest {
 		fix();
 
 		assertEquals(permissions, Files.getPosixFilePermissions(file));
-		assertEquals("package com.example;\n\npublic class Service {\n}\n", Files.readString(file));
-		try (var siblings = Files.list(file.getParent())) {
-			assertEquals(List.of("Service.java"), siblings.map(path -> path.getFileName().toString()).toList());
+		assertEquals("package com.example;\n\npublic class Service {\n}\n",
+				Files.readString(file, StandardCharsets.UTF_8));
+		try (var siblings = Files.list(Objects.requireNonNull(file.getParent()))) {
+			assertEquals(List.of("Service.java"), siblings.map(path -> String.valueOf(path.getFileName())).toList());
 		}
 	}
 
 	@Test
-	void neverRewritesThroughASymlinkThatLeavesTheProject() throws Exception {
+	void neverRewritesThroughASymlinkThatLeavesTheProject() throws IOException {
 		var outside = Files.createDirectories(root.resolve("../outside-" + root.getFileName()));
 		try {
 			var target = Files.writeString(outside.resolve("Leak.java"),
-					"package com.example;\n\npublic class Leak {\n    private int orphan;\n}\n");
+					"package com.example;\n\npublic class Leak {\n    private int orphan;\n}\n",
+					StandardCharsets.UTF_8);
 			var link = root.resolve(MAIN + "Leak.java");
-			Files.createDirectories(link.getParent());
+			Files.createDirectories(Objects.requireNonNull(link.getParent()));
 			try {
 				Files.createSymbolicLink(link, target);
 			}
@@ -353,7 +365,7 @@ class SourceAutofixEngineTest {
 
 			assertEquals(List.of("com.example.Leak#orphan"),
 					remaining.issues().stream().map(AnalysisIssue::symbol).toList());
-			assertTrue(Files.readString(target).contains("private int orphan"));
+			assertTrue(Files.readString(target, StandardCharsets.UTF_8).contains("private int orphan"));
 		}
 		finally {
 			Files.deleteIfExists(outside.resolve("Leak.java"));
@@ -362,26 +374,27 @@ class SourceAutofixEngineTest {
 	}
 
 	@Test
-	void refusesToApplyAPlanWhenTheFileChangedSincePlanning() throws Exception {
+	void refusesToApplyAPlanWhenTheFileChangedSincePlanning() throws IOException {
 		var file = write(MAIN + "Service.java",
 				"package com.example;\n\npublic class Service {\n    private int orphan;\n}\n");
 		var engine = new SourceAutofixEngine(root);
 		var plan = engine.plan(analyze());
 		Files.writeString(file,
-				"package com.example;\n\npublic class Service {\n    int moved;\n    private int orphan;\n}\n");
+				"package com.example;\n\npublic class Service {\n    int moved;\n    private int orphan;\n}\n",
+				StandardCharsets.UTF_8);
 
 		assertThrows(IllegalStateException.class, () -> engine.apply(plan));
 		assertEquals("package com.example;\n\npublic class Service {\n    int moved;\n    private int orphan;\n}\n",
-				Files.readString(file));
+				Files.readString(file, StandardCharsets.UTF_8));
 	}
 
 	@Test
-	void refusesToApplyAPlanWhenTheFileBecameASymlinkLeavingTheProject() throws Exception {
+	void refusesToApplyAPlanWhenTheFileBecameASymlinkLeavingTheProject() throws IOException {
 		var source = "package com.example;\n\npublic class Service {\n    private int orphan;\n}\n";
 		var file = write(MAIN + "Service.java", source);
 		var outside = Files.createDirectories(root.resolve("../outside-" + root.getFileName()));
 		try {
-			var target = Files.writeString(outside.resolve("Service.java"), source);
+			var target = Files.writeString(outside.resolve("Service.java"), source, StandardCharsets.UTF_8);
 			var engine = new SourceAutofixEngine(root);
 			var plan = engine.plan(analyze());
 			Files.delete(file);
@@ -393,7 +406,7 @@ class SourceAutofixEngineTest {
 			}
 
 			assertThrows(IllegalStateException.class, () -> engine.apply(plan));
-			assertEquals(source, Files.readString(target));
+			assertEquals(source, Files.readString(target, StandardCharsets.UTF_8));
 		}
 		finally {
 			Files.deleteIfExists(outside.resolve("Service.java"));
@@ -402,7 +415,7 @@ class SourceAutofixEngineTest {
 	}
 
 	@Test
-	void ignoresIssuesThatPointOutsideTheProjectOrAtTheWrongLine() throws Exception {
+	void ignoresIssuesThatPointOutsideTheProjectOrAtTheWrongLine() throws IOException {
 		write(MAIN + "Service.java", "package com.example;\n\npublic class Service {\n    private int orphan;\n}\n");
 		var outside = new AnalysisIssue(IssueType.UNUSED_FIELD, Severity.WARNING, "x.Y#z", "../../etc/passwd:1:1", "m",
 				true);
@@ -418,7 +431,7 @@ class SourceAutofixEngineTest {
 	}
 
 	@Test
-	void planDescribesEachActionAndCarriesTheOriginalText() throws Exception {
+	void planDescribesEachActionAndCarriesTheOriginalText() throws IOException {
 		write(MAIN + "Service.java", "package com.example;\n\npublic class Service {\n    private int orphan;\n}\n");
 
 		var plan = new SourceAutofixEngine(root).plan(analyze());
@@ -450,7 +463,7 @@ class SourceAutofixEngineTest {
 
 	private Path write(String relativePath, String content) throws IOException {
 		var file = root.resolve(relativePath);
-		Files.createDirectories(file.getParent());
+		Files.createDirectories(Objects.requireNonNull(file.getParent()));
 		Files.write(file, content.getBytes(StandardCharsets.UTF_8));
 		return file;
 	}

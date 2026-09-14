@@ -4,6 +4,7 @@ import com.patbaumgartner.prune.core.config.AnalysisConfig;
 import com.patbaumgartner.prune.core.report.OutputFormat;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.logging.Log;
+import org.jspecify.annotations.Nullable;
 
 import java.io.File;
 import java.util.List;
@@ -18,12 +19,13 @@ final class MojoSupport {
 			return OutputFormat.parse(format);
 		}
 		catch (IllegalArgumentException exception) {
-			throw new MojoExecutionException(exception.getMessage() + " (expected terminal, github, or json)");
+			throw new MojoExecutionException(exception.getMessage() + " (expected terminal, github, or json)",
+					exception);
 		}
 	}
 
-	static AnalysisConfig configFor(File projectDir, List<String> excludes, File baseline, boolean testReferences,
-			boolean explain) {
+	static AnalysisConfig configFor(File projectDir, @Nullable List<String> excludes, @Nullable File baseline,
+			boolean testReferences, boolean explain) {
 		AnalysisConfig config = AnalysisConfig.defaultFor(projectDir.toPath())
 			.withExcludePatterns(excludes == null ? List.of() : excludes)
 			.withIncludeTestReferences(testReferences)
@@ -38,7 +40,7 @@ final class MojoSupport {
 	}
 
 	static void logReport(Log log, String rendered, boolean asWarning) {
-		for (String line : rendered.split("\\R")) {
+		for (String line : rendered.lines().toList()) {
 			if (asWarning) {
 				log.warn(line);
 			}

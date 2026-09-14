@@ -1,5 +1,6 @@
 package com.patbaumgartner.prune.core.report;
 
+import org.jspecify.annotations.NullUnmarked;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -20,12 +21,16 @@ class AnalysisReportTest {
 		assertEquals(0, report.issueCount());
 	}
 
+	// These two pass null on purpose to prove the record guards; NullAway would
+	// otherwise reject the call before the guard can.
 	@Test
+	@NullUnmarked
 	void rejectsNullSummary() {
 		assertThrows(NullPointerException.class, () -> new AnalysisReport(List.of(), null, true));
 	}
 
 	@Test
+	@NullUnmarked
 	void rejectsNullIssueFields() {
 		assertThrows(NullPointerException.class,
 				() -> new AnalysisIssue(IssueType.UNUSED_CLASS, Severity.WARNING, "A", "A.java", null, false));

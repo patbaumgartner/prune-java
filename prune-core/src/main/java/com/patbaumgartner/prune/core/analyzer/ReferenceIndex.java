@@ -179,7 +179,8 @@ final class ReferenceIndex implements AnalysisContext {
 	}
 
 	private static boolean mentions(JavaSourceFile file, JavaSourceFile owner, TypeDeclaration type) {
-		return file == owner ? file.mentionsOutside(type.name(), type.start(), type.end()) : file.mentions(type.name());
+		return file.relativePath().equals(owner.relativePath())
+				? file.mentionsOutside(type.name(), type.start(), type.end()) : file.mentions(type.name());
 	}
 
 	private static boolean isReflectiveSerializationImport(String importName) {

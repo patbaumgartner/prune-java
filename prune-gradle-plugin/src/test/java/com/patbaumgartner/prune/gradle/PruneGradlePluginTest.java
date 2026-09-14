@@ -8,6 +8,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -75,8 +76,10 @@ class PruneGradlePluginTest {
 
 	@Test
 	void checkTaskRunsWithTheConfigurationCacheEnabled(@TempDir Path projectDir) throws Exception {
-		Files.writeString(projectDir.resolve("settings.gradle"), "rootProject.name = 'cc-probe'\n");
-		Files.writeString(projectDir.resolve("build.gradle"), "plugins { id 'com.patbaumgartner.prune-java' }\n");
+		Files.writeString(projectDir.resolve("settings.gradle"), "rootProject.name = 'cc-probe'\n",
+				StandardCharsets.UTF_8);
+		Files.writeString(projectDir.resolve("build.gradle"), "plugins { id 'com.patbaumgartner.prune-java' }\n",
+				StandardCharsets.UTF_8);
 
 		var result = GradleRunner.create()
 			.withProjectDir(projectDir.toFile())
@@ -90,9 +93,11 @@ class PruneGradlePluginTest {
 
 	@Test
 	void checkTaskRejectsAnUnknownFormat(@TempDir Path projectDir) throws Exception {
-		Files.writeString(projectDir.resolve("settings.gradle"), "rootProject.name = 'format-probe'\n");
+		Files.writeString(projectDir.resolve("settings.gradle"), "rootProject.name = 'format-probe'\n",
+				StandardCharsets.UTF_8);
 		Files.writeString(projectDir.resolve("build.gradle"),
-				"plugins { id 'com.patbaumgartner.prune-java' }\npruneCheck { format = 'xml' }\n");
+				"plugins { id 'com.patbaumgartner.prune-java' }\npruneCheck { format = 'xml' }\n",
+				StandardCharsets.UTF_8);
 
 		var result = GradleRunner.create()
 			.withProjectDir(projectDir.toFile())
@@ -107,8 +112,10 @@ class PruneGradlePluginTest {
 
 	@Test
 	void baselineTaskRecordsTheFindingsAndCheckThenPassesWithThemSuppressed(@TempDir Path projectDir) throws Exception {
-		Files.writeString(projectDir.resolve("settings.gradle"), "rootProject.name = 'baseline-probe'\n");
-		Files.writeString(projectDir.resolve("build.gradle"), "plugins { id 'com.patbaumgartner.prune-java' }\n");
+		Files.writeString(projectDir.resolve("settings.gradle"), "rootProject.name = 'baseline-probe'\n",
+				StandardCharsets.UTF_8);
+		Files.writeString(projectDir.resolve("build.gradle"), "plugins { id 'com.patbaumgartner.prune-java' }\n",
+				StandardCharsets.UTF_8);
 		writeSource(projectDir, "src/main/java/com/example/Dead.java",
 				"package com.example;\n\nfinal class Dead {\n}\n");
 
@@ -122,8 +129,8 @@ class PruneGradlePluginTest {
 			.contains("prune-java baseline: wrote 1 finding(s) to "
 					+ projectDir.toRealPath().resolve("prune-baseline.txt")),
 				baseline.getOutput());
-		assertTrue(
-				Files.readString(projectDir.resolve("prune-baseline.txt")).endsWith("UNUSED_CLASS com.example.Dead\n"));
+		assertTrue(Files.readString(projectDir.resolve("prune-baseline.txt"), StandardCharsets.UTF_8)
+			.endsWith("UNUSED_CLASS com.example.Dead\n"));
 		assertEquals(TaskOutcome.SUCCESS, after.task(":pruneCheck").getOutcome());
 		assertTrue(
 				after.getOutput()
@@ -134,8 +141,10 @@ class PruneGradlePluginTest {
 	@Test
 	void baselineTaskRunsAgainWhenTheSourcesChangeEvenThoughItsOnlyDeclaredInputsDidNot(@TempDir Path projectDir)
 			throws Exception {
-		Files.writeString(projectDir.resolve("settings.gradle"), "rootProject.name = 'rerun-probe'\n");
-		Files.writeString(projectDir.resolve("build.gradle"), "plugins { id 'com.patbaumgartner.prune-java' }\n");
+		Files.writeString(projectDir.resolve("settings.gradle"), "rootProject.name = 'rerun-probe'\n",
+				StandardCharsets.UTF_8);
+		Files.writeString(projectDir.resolve("build.gradle"), "plugins { id 'com.patbaumgartner.prune-java' }\n",
+				StandardCharsets.UTF_8);
 		writeSource(projectDir, "src/main/java/com/example/Dead.java",
 				"package com.example;\n\nfinal class Dead {\n}\n");
 
@@ -145,13 +154,14 @@ class PruneGradlePluginTest {
 		var second = runner(projectDir, "pruneBaseline").build();
 
 		assertEquals(TaskOutcome.SUCCESS, second.task(":pruneBaseline").getOutcome());
-		assertTrue(Files.readString(projectDir.resolve("prune-baseline.txt"))
+		assertTrue(Files.readString(projectDir.resolve("prune-baseline.txt"), StandardCharsets.UTF_8)
 			.contains("UNUSED_CLASS com.example.Other\n"));
 	}
 
 	@Test
 	void tasksHonourAnExplicitBaselineFileAndTestReferences(@TempDir Path projectDir) throws Exception {
-		Files.writeString(projectDir.resolve("settings.gradle"), "rootProject.name = 'options-probe'\n");
+		Files.writeString(projectDir.resolve("settings.gradle"), "rootProject.name = 'options-probe'\n",
+				StandardCharsets.UTF_8);
 		Files.writeString(projectDir.resolve("build.gradle"), """
 				plugins { id 'com.patbaumgartner.prune-java' }
 				pruneCheck {
@@ -163,7 +173,7 @@ class PruneGradlePluginTest {
 				    baseline = layout.projectDirectory.file('config/accepted.txt')
 				    testReferences = false
 				}
-				""");
+				""", StandardCharsets.UTF_8);
 		writeSource(projectDir, "src/main/java/com/example/Helper.java",
 				"package com.example;\n\nfinal class Helper {\n}\n");
 		writeSource(projectDir, "src/test/java/com/example/HelperTest.java",
@@ -175,7 +185,7 @@ class PruneGradlePluginTest {
 		var after = runner(projectDir, "pruneCheck").build();
 
 		assertTrue(before.getOutput().contains("Class Helper is only referenced from tests"), before.getOutput());
-		assertTrue(Files.readString(projectDir.resolve("config/accepted.txt"))
+		assertTrue(Files.readString(projectDir.resolve("config/accepted.txt"), StandardCharsets.UTF_8)
 			.endsWith("UNUSED_CLASS com.example.Helper\n"));
 		assertTrue(after.getOutput()
 			.contains(
@@ -185,9 +195,11 @@ class PruneGradlePluginTest {
 
 	@Test
 	void checkTaskTurnsAMalformedBaselineIntoABuildFailure(@TempDir Path projectDir) throws Exception {
-		Files.writeString(projectDir.resolve("settings.gradle"), "rootProject.name = 'malformed-probe'\n");
-		Files.writeString(projectDir.resolve("build.gradle"), "plugins { id 'com.patbaumgartner.prune-java' }\n");
-		Files.writeString(projectDir.resolve("prune-baseline.txt"), "UNUSED_CLASS\n");
+		Files.writeString(projectDir.resolve("settings.gradle"), "rootProject.name = 'malformed-probe'\n",
+				StandardCharsets.UTF_8);
+		Files.writeString(projectDir.resolve("build.gradle"), "plugins { id 'com.patbaumgartner.prune-java' }\n",
+				StandardCharsets.UTF_8);
+		Files.writeString(projectDir.resolve("prune-baseline.txt"), "UNUSED_CLASS\n", StandardCharsets.UTF_8);
 
 		var result = runner(projectDir, "pruneCheck").buildAndFail();
 
@@ -205,7 +217,7 @@ class PruneGradlePluginTest {
 	private static void writeSource(Path projectDir, String relativePath, String content) throws IOException {
 		var file = projectDir.resolve(relativePath);
 		Files.createDirectories(file.getParent());
-		Files.writeString(file, content);
+		Files.writeString(file, content, StandardCharsets.UTF_8);
 	}
 
 }

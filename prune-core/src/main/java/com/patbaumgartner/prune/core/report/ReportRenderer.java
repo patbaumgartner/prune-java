@@ -91,7 +91,7 @@ public final class ReportRenderer {
 				case '\t' -> escaped.append("\\t");
 				default -> {
 					if (c < 0x20) {
-						escaped.append(String.format("\\u%04x", (int) c));
+						appendUnicodeEscape(escaped, c);
 					}
 					else {
 						escaped.append(c);
@@ -119,11 +119,20 @@ public final class ReportRenderer {
 			char c = value.charAt(i);
 			switch (Character.getType(c)) {
 				case Character.CONTROL, Character.FORMAT, Character.LINE_SEPARATOR, Character.PARAGRAPH_SEPARATOR ->
-					escaped.append(String.format("\\u%04x", (int) c));
+					appendUnicodeEscape(escaped, c);
 				default -> escaped.append(c);
 			}
 		}
 		return escaped.toString();
+	}
+
+	private static void appendUnicodeEscape(StringBuilder escaped, char c) {
+		String hex = Integer.toHexString(c);
+		escaped.append("\\u");
+		for (int i = hex.length(); i < 4; i++) {
+			escaped.append('0');
+		}
+		escaped.append(hex);
 	}
 
 }

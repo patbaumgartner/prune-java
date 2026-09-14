@@ -78,7 +78,8 @@ public final class ParserFuzzer {
 			Baseline.parse(text, "fuzzed.txt");
 		}
 		catch (IllegalArgumentException rejected) {
-			require(rejected.getMessage().startsWith("fuzzed.txt:"), "baseline rejection " + rejected.getMessage());
+			String message = String.valueOf(rejected.getMessage());
+			require(message.startsWith("fuzzed.txt:"), "baseline rejection " + message);
 		}
 	}
 

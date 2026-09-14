@@ -4,7 +4,6 @@ import org.eclipse.lsp4j.jsonrpc.Launcher;
 import org.eclipse.lsp4j.launch.LSPLauncher;
 import org.eclipse.lsp4j.services.LanguageClient;
 
-import java.io.InputStream;
 import java.io.PrintStream;
 import java.util.concurrent.ExecutionException;
 
@@ -14,17 +13,23 @@ public final class PruneLspApplication {
 	}
 
 	public static void main(String[] args) throws InterruptedException, ExecutionException {
-		InputStream in = System.in;
-		PrintStream out = System.out;
-		// stdout is the protocol channel; any stray print would corrupt it.
-		System.setOut(System.err);
-
 		PruneLanguageServer server = new PruneLanguageServer();
-		Launcher<LanguageClient> launcher = LSPLauncher.createServerLauncher(server, in, out);
+		Launcher<LanguageClient> launcher = LSPLauncher.createServerLauncher(server, System.in, claimStdout());
 		server.connect(launcher.getRemoteProxy());
-		server.exited().thenAccept(System::exit);
+		// The client normally ends the session with exit; one that only closes the pipe
+		// ends the listener instead.
+		Thread exitOnRequest = new Thread(() -> System.exit(server.exited().join()), "prune-lsp-exit");
+		exitOnRequest.setDaemon(true);
+		exitOnRequest.start();
 		launcher.startListening().get();
 		System.exit(0);
+	}
+
+	// stdout is the protocol channel; any stray print would corrupt it.
+	private static PrintStream claimStdout() {
+		PrintStream wire = System.out;
+		System.setOut(System.err);
+		return wire;
 	}
 
 }

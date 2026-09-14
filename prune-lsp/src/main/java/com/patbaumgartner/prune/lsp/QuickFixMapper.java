@@ -13,6 +13,7 @@ import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.TextEdit;
 import org.eclipse.lsp4j.WorkspaceEdit;
+import org.jspecify.annotations.Nullable;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -72,7 +73,7 @@ public final class QuickFixMapper {
 
 	// Every edit of one fix targets the same file, so the map is built once and only when
 	// the text still matches what the engine planned against.
-	private static LineMap lineMapIfUnchanged(Path file, FixAction fix) {
+	private static @Nullable LineMap lineMapIfUnchanged(Path file, FixAction fix) {
 		String content;
 		try {
 			content = new String(Files.readAllBytes(file), StandardCharsets.UTF_8);
@@ -85,7 +86,7 @@ public final class QuickFixMapper {
 
 	// Two members of different nested types can share a name and therefore a message, so
 	// the diagnostic's line disambiguates when the client sends one.
-	private static AnalysisIssue matchingIssue(String uri, Diagnostic diagnostic, AnalysisReport report,
+	private static @Nullable AnalysisIssue matchingIssue(String uri, Diagnostic diagnostic, AnalysisReport report,
 			Path projectRoot) {
 		String code = diagnostic.getCode().isLeft() ? diagnostic.getCode().getLeft() : null;
 		String message = diagnostic.getMessage().isLeft() ? diagnostic.getMessage().getLeft() : null;

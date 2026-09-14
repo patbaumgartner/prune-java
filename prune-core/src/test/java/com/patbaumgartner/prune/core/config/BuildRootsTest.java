@@ -4,8 +4,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Objects;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -112,8 +114,8 @@ class BuildRootsTest {
 
 	private void write(String relativePath, String content) throws IOException {
 		var file = dir.resolve(relativePath);
-		Files.createDirectories(file.getParent());
-		Files.writeString(file, content);
+		Files.createDirectories(Objects.requireNonNull(file.getParent()));
+		Files.writeString(file, content, StandardCharsets.UTF_8);
 	}
 
 	private static String aggregator(String... modules) {

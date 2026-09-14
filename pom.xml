@@ -26,10 +26,26 @@
     </modules>
 
     <properties>
+        <!--
+      Analysis engine versions live here once; prune-gradle-plugin/build.gradle reads them
+      from this file so both builds run the same Checkstyle, PMD, SpotBugs, Error Prone,
+      NullAway, and forbidden-apis.
+    -->
+        <checkstyle.version>14.1.0</checkstyle.version>
+        <errorprone.version>2.50.0</errorprone.version>
+        <extra-enforcer-rules.version>1.12.1</extra-enforcer-rules.version>
+        <findsecbugs.version>1.14.0</findsecbugs.version>
         <flatten-maven-plugin.version>1.8.0</flatten-maven-plugin.version>
+        <forbiddenapis.version>3.10</forbiddenapis.version>
+        <!--
+      lsp4j declares gson as an open range, which would make every prune-lsp build resolve
+      whatever is newest; pinning it here keeps the build reproducible and lets Dependabot
+      own the bump.
+    -->
+        <gson.version>2.14.0</gson.version>
         <jazzer.version>0.30.0</jazzer.version>
         <jreleaser.version>1.26.0</jreleaser.version>
-
+        <jspecify.version>1.0.1</jspecify.version>
         <junit.version>6.1.3</junit.version>
         <lsp4j.version>1.0.0</lsp4j.version>
         <maven-plugin-tools.version>3.16.0</maven-plugin-tools.version>
@@ -41,6 +57,8 @@
       Maven 4 satisfies it too; CI runs the plugin under both lines.
     -->
         <maven.version>3.9.0</maven.version>
+        <nullaway.version>0.14.1</nullaway.version>
+        <pmd.version>7.27.0</pmd.version>
         <!--
       Fixed timestamp for every archive entry, which makes the published jars byte-for-byte
       reproducible: anyone can rebuild the tag and compare against Maven Central. Bump it
@@ -50,6 +68,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <sortpom.version>4.0.0</sortpom.version>
+        <spotbugs.version>4.10.4</spotbugs.version>
         <spring-javaformat.version>0.0.48</spring-javaformat.version>
     </properties>
 
@@ -67,10 +86,29 @@
                 <artifactId>jazzer-api</artifactId>
                 <version>${jazzer.version}</version>
             </dependency>
+            <dependency>
+                <groupId>org.jspecify</groupId>
+                <artifactId>jspecify</artifactId>
+                <version>${jspecify.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.google.code.gson</groupId>
+                <artifactId>gson</artifactId>
+                <version>${gson.version}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
     <dependencies>
+        <!--
+      Nullness annotations for NullAway. Provided scope keeps them out of every published
+      POM's compile dependencies, so prune-core still has none; check target/.flattened-pom.xml.
+    -->
+        <dependency>
+            <groupId>org.jspecify</groupId>
+            <artifactId>jspecify</artifactId>
+            <scope>provided</scope>
+        </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
@@ -86,10 +124,144 @@
     <build>
         <pluginManagement>
             <plugins>
+                <!--
+          Error Prone and NullAway run inside javac. The arguments are what errorprone.info
+          prescribes: compilePolicy=simple lets the checks see whole compilation units,
+          should-stop keeps javac from reporting on trees it could not attribute,
+          addTypeAnnotationsToSymbol is what a JDK 21 javac needs to expose type annotations
+          to the checks (google/error-prone#5426; later JDKs accept it), and the plugin line
+          turns NullAway on for this project's packages as an error. Fields that JUnit or
+          Maven inject after construction are excluded from the initialization check;
+          parameters that may legitimately stay unset are annotated Nullable instead. Error
+          Prone touches jdk.compiler internals, which .mvn/jvm.config opens.
+        -->
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-compiler-plugin</artifactId>
                     <version>3.16.0</version>
+                    <configuration>
+                        <showWarnings>true</showWarnings>
+                        <compilerArgs>
+                            <arg>-XDcompilePolicy=simple</arg>
+                            <arg>--should-stop=ifError=FLOW</arg>
+                            <arg>-XDaddTypeAnnotationsToSymbol=true</arg>
+                            <arg>-Xplugin:ErrorProne
+                                -XepOpt:NullAway:AnnotatedPackages=com.patbaumgartner
+                                -XepOpt:NullAway:ExcludedFieldAnnotations=org.junit.jupiter.api.io.TempDir,org.apache.maven.plugins.annotations.Parameter
+                                -XepOpt:NullAway:HandleTestAssertionLibraries=true
+                                -Xep:NullAway:ERROR</arg>
+                        </compilerArgs>
+                        <annotationProcessorPaths>
+                            <path>
+                                <groupId>com.google.errorprone</groupId>
+                                <artifactId>error_prone_core</artifactId>
+                                <version>${errorprone.version}</version>
+                            </path>
+                            <path>
+                                <groupId>com.uber.nullaway</groupId>
+                                <artifactId>nullaway</artifactId>
+                                <version>${nullaway.version}</version>
+                            </path>
+                        </annotationProcessorPaths>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-clean-plugin</artifactId>
+                    <version>3.5.0</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-site-plugin</artifactId>
+                    <version>3.22.0</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-checkstyle-plugin</artifactId>
+                    <version>3.6.0</version>
+                    <configuration>
+                        <configLocation>
+                            ${maven.multiModuleProjectDirectory}/config/checkstyle/checkstyle.xml</configLocation>
+                        <includeTestSourceDirectory>true</includeTestSourceDirectory>
+                        <consoleOutput>true</consoleOutput>
+                        <violationSeverity>warning</violationSeverity>
+                    </configuration>
+                    <dependencies>
+                        <dependency>
+                            <groupId>com.puppycrawl.tools</groupId>
+                            <artifactId>checkstyle</artifactId>
+                            <version>${checkstyle.version}</version>
+                        </dependency>
+                    </dependencies>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-pmd-plugin</artifactId>
+                    <version>3.28.0</version>
+                    <configuration>
+                        <rulesets>
+                            <ruleset>${maven.multiModuleProjectDirectory}/config/pmd/ruleset.xml</ruleset>
+                        </rulesets>
+                        <includeTests>true</includeTests>
+                        <printFailingErrors>true</printFailingErrors>
+                        <minimumTokens>60</minimumTokens>
+                        <linkXRef>false</linkXRef>
+                    </configuration>
+                    <dependencies>
+                        <dependency>
+                            <groupId>net.sourceforge.pmd</groupId>
+                            <artifactId>pmd-core</artifactId>
+                            <version>${pmd.version}</version>
+                        </dependency>
+                        <dependency>
+                            <groupId>net.sourceforge.pmd</groupId>
+                            <artifactId>pmd-java</artifactId>
+                            <version>${pmd.version}</version>
+                        </dependency>
+                    </dependencies>
+                </plugin>
+                <plugin>
+                    <groupId>com.github.spotbugs</groupId>
+                    <artifactId>spotbugs-maven-plugin</artifactId>
+                    <version>4.10.4.1</version>
+                    <configuration>
+                        <effort>Max</effort>
+                        <threshold>Low</threshold>
+                        <includeTests>true</includeTests>
+                        <excludeFilterFile>
+                            ${maven.multiModuleProjectDirectory}/config/spotbugs/exclude.xml</excludeFilterFile>
+                        <plugins>
+                            <plugin>
+                                <groupId>com.h3xstream.findsecbugs</groupId>
+                                <artifactId>findsecbugs-plugin</artifactId>
+                                <version>${findsecbugs.version}</version>
+                            </plugin>
+                        </plugins>
+                    </configuration>
+                    <dependencies>
+                        <dependency>
+                            <groupId>com.github.spotbugs</groupId>
+                            <artifactId>spotbugs</artifactId>
+                            <version>${spotbugs.version}</version>
+                        </dependency>
+                    </dependencies>
+                </plugin>
+                <plugin>
+                    <groupId>de.thetaphi</groupId>
+                    <artifactId>forbiddenapis</artifactId>
+                    <version>${forbiddenapis.version}</version>
+                    <configuration>
+                        <bundledSignatures>
+                            <bundledSignature>jdk-unsafe</bundledSignature>
+                            <bundledSignature>jdk-deprecated</bundledSignature>
+                            <bundledSignature>jdk-non-portable</bundledSignature>
+                            <bundledSignature>jdk-reflection</bundledSignature>
+                        </bundledSignatures>
+                        <signaturesFiles>
+                            <signaturesFile>
+                                ${maven.multiModuleProjectDirectory}/config/forbidden-apis/signatures.txt</signaturesFile>
+                        </signaturesFiles>
+                    </configuration>
                 </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
@@ -145,6 +317,13 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-enforcer-plugin</artifactId>
                     <version>3.6.3</version>
+                    <dependencies>
+                        <dependency>
+                            <groupId>org.codehaus.mojo</groupId>
+                            <artifactId>extra-enforcer-rules</artifactId>
+                            <version>${extra-enforcer-rules.version}</version>
+                        </dependency>
+                    </dependencies>
                 </plugin>
                 <!-- Invoked from the command line by the release workflow and the release steps. -->
                 <plugin>
@@ -213,11 +392,79 @@
                     </execution>
                 </executions>
             </plugin>
+            <!--
+        Checkstyle covers what the formatter cannot see (imports, naming, class design,
+        equals/hashCode); it runs in validate next to the formatter so a violation fails the
+        build before anything is compiled. The rules live in config/checkstyle/checkstyle.xml.
+      -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-checkstyle-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>check-style</id>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                        <phase>validate</phase>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!--
+        Bytecode-level analysis after the tests: PMD and CPD over the sources, SpotBugs with
+        Find Security Bugs over main and test classes, forbidden-apis against the bundled
+        JDK signature sets plus config/forbidden-apis/signatures.txt. Each one fails the
+        build on its first finding; there is no report-only mode here.
+      -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-pmd-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>check-pmd</id>
+                        <goals>
+                            <goal>check</goal>
+                            <goal>cpd-check</goal>
+                        </goals>
+                        <phase>verify</phase>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>com.github.spotbugs</groupId>
+                <artifactId>spotbugs-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>check-spotbugs</id>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                        <phase>verify</phase>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>de.thetaphi</groupId>
+                <artifactId>forbiddenapis</artifactId>
+                <executions>
+                    <execution>
+                        <id>check-forbidden-apis</id>
+                        <goals>
+                            <goal>check</goal>
+                            <goal>testCheck</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
 
             <!--
         Fail on an environment that cannot produce the artifacts this project promises,
         rather than on a mysterious compiler error later. Java 21 builds the project even
-        though the bytecode targets 17; Maven 3.9 is the plugin's own floor.
+        though the bytecode targets 17; Maven 3.9 is the plugin's own floor. The dependency
+        rules keep the graph honest: one version per artifact, no ranges, every plugin
+        pinned, no legacy logging or JUnit 4 artifacts, and no dependency compiled above
+        the bytecode level this project targets.
       -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -238,6 +485,38 @@
                                     <version>[${maven.version},)</version>
                                 </requireMavenVersion>
                                 <banDuplicatePomDependencyVersions></banDuplicatePomDependencyVersions>
+                                <requirePluginVersions>
+                                    <banLatest>true</banLatest>
+                                    <banRelease>true</banRelease>
+                                    <banSnapshots>true</banSnapshots>
+                                    <phases>clean,deploy,site</phases>
+                                </requirePluginVersions>
+                                <banDynamicVersions>
+                                    <!-- The reactor's own modules share one version, which is a
+                                    SNAPSHOT between releases; each module inherits it from this pom. -->
+                                    <ignores>
+                                        <ignore>${project.groupId}</ignore>
+                                    </ignores>
+                                </banDynamicVersions>
+                                <dependencyConvergence></dependencyConvergence>
+                                <requireUpperBoundDeps></requireUpperBoundDeps>
+                                <banCircularDependencies></banCircularDependencies>
+                                <bannedDependencies>
+                                    <excludes>
+                                        <exclude>junit:junit</exclude>
+                                        <exclude>org.junit.vintage:junit-vintage-engine</exclude>
+                                        <exclude>commons-logging:commons-logging</exclude>
+                                        <exclude>log4j:log4j</exclude>
+                                        <exclude>org.slf4j:slf4j-log4j12</exclude>
+                                        <exclude>com.google.code.findbugs:jsr305</exclude>
+                                    </excludes>
+                                </bannedDependencies>
+                                <enforceBytecodeVersion>
+                                    <maxJdkVersion>${maven.compiler.release}</maxJdkVersion>
+                                    <ignoredScopes>
+                                        <ignoredScope>test</ignoredScope>
+                                    </ignoredScopes>
+                                </enforceBytecodeVersion>
                             </rules>
                         </configuration>
                     </execution>

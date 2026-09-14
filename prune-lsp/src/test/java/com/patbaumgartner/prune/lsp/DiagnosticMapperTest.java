@@ -4,6 +4,7 @@ import com.patbaumgartner.prune.core.report.AnalysisIssue;
 import com.patbaumgartner.prune.core.report.AnalysisReport;
 import com.patbaumgartner.prune.core.report.IssueType;
 import com.patbaumgartner.prune.core.report.Severity;
+import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.DiagnosticSeverity;
 import org.eclipse.lsp4j.DiagnosticTag;
 import org.eclipse.lsp4j.Position;
@@ -15,6 +16,7 @@ import java.nio.file.Path;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DiagnosticMapperTest {
@@ -37,12 +39,9 @@ class DiagnosticMapperTest {
 	void mapsIssueFieldsOntoDiagnostic() {
 		var issue = new AnalysisIssue(IssueType.UNUSED_METHOD, Severity.WARNING, "Foo#bar", "src/main/java/Foo.java",
 				"Method bar is unused", false);
-		var report = new AnalysisReport(List.of(issue), "one", true);
 
-		var byUri = mapper.map(report, tempDir);
+		var diagnostics = diagnosticsFor(issue, "src/main/java/Foo.java");
 
-		var expectedUri = tempDir.resolve("src/main/java/Foo.java").toUri().toString();
-		var diagnostics = byUri.get(expectedUri);
 		assertEquals(1, diagnostics.size());
 		var diagnostic = diagnostics.get(0);
 		assertEquals("Method bar is unused", diagnostic.getMessage().getLeft());
@@ -57,13 +56,10 @@ class DiagnosticMapperTest {
 	void trailingLineAndColumnBecomeZeroBasedPositionAndTheRangeSpansTheMemberName() {
 		var issue = new AnalysisIssue(IssueType.UNUSED_FIELD, Severity.INFO, "a.Foo#counter",
 				"src/main/java/Foo.java:12:5", "unused", true);
-		var report = new AnalysisReport(List.of(issue), "one", true);
 
-		var byUri = mapper.map(report, tempDir);
+		var diagnostics = diagnosticsFor(issue, "src/main/java/Foo.java");
 
-		var expectedUri = tempDir.resolve("src/main/java/Foo.java").toUri().toString();
-		var diagnostic = byUri.get(expectedUri).get(0);
-		assertEquals(new Range(new Position(11, 4), new Position(11, 11)), diagnostic.getRange());
+		assertEquals(new Range(new Position(11, 4), new Position(11, 11)), diagnostics.get(0).getRange());
 	}
 
 	@Test
@@ -108,26 +104,20 @@ class DiagnosticMapperTest {
 	void digitSuffixTooLongForAnIntIsTreatedAsPartOfThePath() {
 		var issue = new AnalysisIssue(IssueType.UNUSED_CLASS, Severity.INFO, "Foo",
 				"src/main/java/Foo.java:99999999999", "unused", false);
-		var report = new AnalysisReport(List.of(issue), "one", true);
 
-		var byUri = mapper.map(report, tempDir);
+		var diagnostics = diagnosticsFor(issue, "src/main/java/Foo.java:99999999999");
 
-		var expectedUri = tempDir.resolve("src/main/java/Foo.java:99999999999").toUri().toString();
-		var diagnostic = byUri.get(expectedUri).get(0);
-		assertEquals(new Range(new Position(0, 0), new Position(0, 0)), diagnostic.getRange());
+		assertEquals(new Range(new Position(0, 0), new Position(0, 0)), diagnostics.get(0).getRange());
 	}
 
 	@Test
 	void pathContainingANewlineStillMaps() {
 		var issue = new AnalysisIssue(IssueType.UNUSED_CLASS, Severity.INFO, "Foo", "src/main/java/we\nird.java:2",
 				"unused", false);
-		var report = new AnalysisReport(List.of(issue), "one", true);
 
-		var byUri = mapper.map(report, tempDir);
+		var diagnostics = diagnosticsFor(issue, "src/main/java/we\nird.java");
 
-		var expectedUri = tempDir.resolve("src/main/java/we\nird.java").toUri().toString();
-		var diagnostic = byUri.get(expectedUri).get(0);
-		assertEquals(new Range(new Position(1, 0), new Position(1, 0)), diagnostic.getRange());
+		assertEquals(new Range(new Position(1, 0), new Position(1, 0)), diagnostics.get(0).getRange());
 	}
 
 	@Test
@@ -143,8 +133,12 @@ class DiagnosticMapperTest {
 		var byUri = mapper.map(report, tempDir);
 
 		assertEquals(2, byUri.size());
-		assertEquals(2, byUri.get(tempDir.resolve("src/main/java/Foo.java").toUri().toString()).size());
-		assertEquals(1, byUri.get(tempDir.resolve("pom.xml").toUri().toString()).size());
+		var fooDiagnostics = byUri.get(tempDir.resolve("src/main/java/Foo.java").toUri().toString());
+		var pomDiagnostics = byUri.get(tempDir.resolve("pom.xml").toUri().toString());
+		assertNotNull(fooDiagnostics);
+		assertNotNull(pomDiagnostics);
+		assertEquals(2, fooDiagnostics.size());
+		assertEquals(1, pomDiagnostics.size());
 	}
 
 	@Test
@@ -162,6 +156,13 @@ class DiagnosticMapperTest {
 			};
 			assertEquals(expected, diagnostic.getSeverity());
 		}
+	}
+
+	private List<Diagnostic> diagnosticsFor(AnalysisIssue issue, String relativePath) {
+		var byUri = mapper.map(new AnalysisReport(List.of(issue), "one", true), tempDir);
+		var diagnostics = byUri.get(tempDir.resolve(relativePath).toUri().toString());
+		assertNotNull(diagnostics);
+		return diagnostics;
 	}
 
 }

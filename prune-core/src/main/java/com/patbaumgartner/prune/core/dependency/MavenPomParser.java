@@ -1,5 +1,6 @@
 package com.patbaumgartner.prune.core.dependency;
 
+import org.jspecify.annotations.Nullable;
 import org.xml.sax.Attributes;
 import org.xml.sax.InputSource;
 import org.xml.sax.Locator;
@@ -90,9 +91,9 @@ public final class MavenPomParser {
 
 		private final StringBuilder text = new StringBuilder();
 
-		private Locator locator;
+		private @Nullable Locator locator;
 
-		private Pending current;
+		private @Nullable Pending current;
 
 		Handler(String buildFile) {
 			this.buildFile = buildFile;
@@ -187,7 +188,9 @@ public final class MavenPomParser {
 					|| (depth == 5 && isPath("project", "profiles", "profile", "modules", "module"));
 		}
 
-		private String resolve(String value) {
+		// Null when a placeholder has no value or resolves to another placeholder; such a
+		// declaration is left alone rather than guessed at.
+		private @Nullable String resolve(String value) {
 			Matcher matcher = PLACEHOLDER.matcher(value);
 			StringBuilder resolved = new StringBuilder();
 			int last = 0;

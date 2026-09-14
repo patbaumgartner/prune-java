@@ -5,7 +5,6 @@ import org.junit.jupiter.api.Test;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -78,21 +77,20 @@ class JavaSourceParserTest {
 
 		var type = JavaSourceParser.parse("A.java", text).types().get(0);
 
-		var byName = type.members().stream().collect(Collectors.toMap(MemberDeclaration::name, m -> m, (a, b) -> a));
-		assertEquals(MemberDeclaration.MemberKind.FIELD, byName.get("X").kind());
-		assertEquals(2, byName.get("X").declaratorCount());
-		assertEquals(2, byName.get("Y").declaratorCount());
-		assertEquals(List.of("private", "static", "final"), byName.get("X").modifiers());
-		assertEquals(MemberDeclaration.MemberKind.FIELD, byName.get("arr").kind());
-		assertTrue(byName.get("annotated").annotated());
-		assertEquals(MemberDeclaration.MemberKind.FIELD, byName.get("generic").kind());
-		assertEquals(MemberDeclaration.MemberKind.CONSTRUCTOR, byName.get("A").kind());
+		assertEquals(MemberDeclaration.MemberKind.FIELD, member(type, "X").kind());
+		assertEquals(2, member(type, "X").declaratorCount());
+		assertEquals(2, member(type, "Y").declaratorCount());
+		assertEquals(List.of("private", "static", "final"), member(type, "X").modifiers());
+		assertEquals(MemberDeclaration.MemberKind.FIELD, member(type, "arr").kind());
+		assertTrue(member(type, "annotated").annotated());
+		assertEquals(MemberDeclaration.MemberKind.FIELD, member(type, "generic").kind());
+		assertEquals(MemberDeclaration.MemberKind.CONSTRUCTOR, member(type, "A").kind());
 		assertEquals(2, type.constructors().size());
-		assertEquals(MemberDeclaration.MemberKind.METHOD, byName.get("method").kind());
-		assertTrue(byName.get("nativeOne").hasModifier("native"));
+		assertEquals(MemberDeclaration.MemberKind.METHOD, member(type, "method").kind());
+		assertTrue(member(type, "nativeOne").hasModifier("native"));
 		assertEquals(2,
 				type.members().stream().filter(m -> m.kind() == MemberDeclaration.MemberKind.INITIALIZER).count());
-		var foo = byName.get("foo");
+		var foo = member(type, "foo");
 		assertEquals("private void foo", text.substring(foo.start(), foo.start() + 16));
 		assertEquals('}', text.charAt(foo.end() - 1));
 		assertEquals(text.indexOf("foo(int"), foo.nameOffset());
@@ -111,11 +109,10 @@ class JavaSourceParserTest {
 				}
 				""").types().get(0);
 
-		var byName = type.members().stream().collect(Collectors.toMap(MemberDeclaration::name, m -> m));
-		assertTrue(byName.get("onStart").annotated());
-		assertFalse(byName.get("plain").annotated());
-		assertFalse(byName.get("annotatedInsideBody").annotated());
-		assertTrue(byName.get("A").annotated());
+		assertTrue(member(type, "onStart").annotated());
+		assertFalse(member(type, "plain").annotated());
+		assertFalse(member(type, "annotatedInsideBody").annotated());
+		assertTrue(member(type, "A").annotated());
 	}
 
 	@Test
@@ -330,6 +327,10 @@ class JavaSourceParserTest {
 		TextSearch.words("com.example.Foo Outer$Inner \"Bar\" MyFoo Foo_ x1 ünï", words);
 
 		assertEquals(Set.of("com", "example", "Foo", "Outer", "Inner", "Bar", "MyFoo", "Foo_", "x1", "ünï"), words);
+	}
+
+	private static MemberDeclaration member(TypeDeclaration type, String name) {
+		return type.members().stream().filter(member -> member.name().equals(name)).findFirst().orElseThrow();
 	}
 
 }

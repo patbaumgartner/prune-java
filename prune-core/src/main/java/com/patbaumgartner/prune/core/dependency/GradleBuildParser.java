@@ -1,5 +1,7 @@
 package com.patbaumgartner.prune.core.dependency;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -64,8 +66,8 @@ public final class GradleBuildParser {
 		return from + 1;
 	}
 
-	private static DeclaredDependency fromCoordinates(String configuration, String notation, String buildFile, int line,
-			int endLine) {
+	private static @Nullable DeclaredDependency fromCoordinates(String configuration, String notation, String buildFile,
+			int line, int endLine) {
 		if (notation.contains("$") || notation.contains("@")) {
 			return null;
 		}

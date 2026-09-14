@@ -12,6 +12,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -43,7 +44,7 @@ class GuardPipelineTest {
 	}
 
 	@Test
-	void aPluggedGuardKeepsItsCandidatesAndIsNamedInTheExplanation() throws Exception {
+	void aPluggedGuardKeepsItsCandidatesAndIsNamedInTheExplanation() throws IOException {
 		write(MAIN + "App.java", """
 				package com.example;
 
@@ -64,7 +65,7 @@ class GuardPipelineTest {
 	}
 
 	@Test
-	void anAnalyzerBuiltFromAnExplicitGuardListUsesExactlyThoseGuards() throws Exception {
+	void anAnalyzerBuiltFromAnExplicitGuardListUsesExactlyThoseGuards() throws IOException {
 		write(MAIN + "App.java", """
 				package com.example;
 
@@ -86,7 +87,7 @@ class GuardPipelineTest {
 	}
 
 	@Test
-	void guardsAreOnlyConsultedForCandidatesNoIdentifierReferences() throws Exception {
+	void guardsAreOnlyConsultedForCandidatesNoIdentifierReferences() throws IOException {
 		write(MAIN + "App.java", """
 				package com.example;
 
@@ -95,19 +96,8 @@ class GuardPipelineTest {
 				    public void run() { used(); }
 				}
 				""");
-		var guard = new Guard() {
-			@Override
-			public String id() {
-				return "counting";
-			}
 
-			@Override
-			public Optional<String> keep(Candidate candidate) {
-				throw new AssertionError("a referenced member must not reach the guards: " + candidate.symbol());
-			}
-		};
-
-		var report = new ConservativeUnusedCodeAnalyzer(List.of(guard))
+		var report = new ConservativeUnusedCodeAnalyzer(List.of(new FailingGuard()))
 			.analyze(AnalysisConfig.defaultFor(root).withExplain(true));
 
 		assertEquals(List.of(), report.issues());
@@ -126,8 +116,22 @@ class GuardPipelineTest {
 
 	private void write(String relativePath, String content) throws IOException {
 		var file = root.resolve(relativePath);
-		Files.createDirectories(file.getParent());
+		Files.createDirectories(Objects.requireNonNull(file.getParent()));
 		Files.write(file, content.getBytes(StandardCharsets.UTF_8));
+	}
+
+	private static final class FailingGuard implements Guard {
+
+		@Override
+		public String id() {
+			return "failing";
+		}
+
+		@Override
+		public Optional<String> keep(Candidate candidate) {
+			throw new AssertionError("a referenced member must not reach the guards: " + candidate.symbol());
+		}
+
 	}
 
 }

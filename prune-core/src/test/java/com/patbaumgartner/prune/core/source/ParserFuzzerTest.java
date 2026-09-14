@@ -3,7 +3,6 @@ package com.patbaumgartner.prune.core.source;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -38,16 +37,13 @@ class ParserFuzzerTest {
 
 		assertDoesNotThrow(() -> ParserFuzzer.check(""));
 		assertDoesNotThrow(() -> ParserFuzzer.check("class A { private int x = ; }} ]]]"));
-		assertFalse(failure.getMessage().isEmpty());
+		assertFalse(String.valueOf(failure.getMessage()).isEmpty());
 	}
 
 	private static List<Path> inputs() throws IOException, URISyntaxException {
 		var corpus = Path.of(ParserFuzzerTest.class.getResource("ParserFuzzerInputs").toURI());
 		try (Stream<Path> files = Files.list(corpus)) {
 			return files.filter(Files::isRegularFile).sorted().toList();
-		}
-		catch (UncheckedIOException exception) {
-			throw exception.getCause();
 		}
 	}
 

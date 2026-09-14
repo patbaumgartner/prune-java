@@ -312,6 +312,24 @@ class DependencyParsersTest {
 			.isUsed(dependency("org.slf4j", "slf4j-api")));
 	}
 
+	@Test
+	void dottedNamesInFreeTextStopAtAnythingThatIsNotAnIdentifierOrASingleDot() {
+		var resource = new ScannedProject.ResourceFile("src/main/resources/notes.txt", """
+				see org.slf4j.Logger. 1com.google.gson.Gson org..apache.commons.lang3.X
+				com.fasterxml.jackson.1databind org.apache.commons.io.$Hidden
+				""", false);
+		var project = new ScannedProject(Path.of("."), List.of(), List.of(resource), List.of(), List.of());
+
+		var usage = new DependencyUsage(project);
+
+		assertTrue(usage.isUsed(dependency("org.slf4j", "slf4j-api")), "a trailing dot is not part of the name");
+		assertTrue(usage.isUsed(dependency("com.google.code.gson", "gson")), "a leading digit is skipped");
+		assertTrue(usage.isUsed(dependency("commons-io", "commons-io")), "a dollar sign starts a segment");
+		assertFalse(usage.isUsed(dependency("org.apache.commons", "commons-lang3")), "a double dot splits the name");
+		assertFalse(usage.isUsed(dependency("com.fasterxml.jackson.core", "jackson-databind")),
+				"a segment cannot start with a digit");
+	}
+
 	private static ScannedProject.JavaFile source(String name, String content) {
 		return new ScannedProject.JavaFile(JavaSourceParser.parse("src/main/java/p/" + name, content), true, false);
 	}

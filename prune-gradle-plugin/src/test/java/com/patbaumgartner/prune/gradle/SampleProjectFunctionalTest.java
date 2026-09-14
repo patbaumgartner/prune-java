@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -43,8 +44,10 @@ class SampleProjectFunctionalTest {
 	@Test
 	void checkTaskWithoutTestReferencesAlsoReportsTheTestOnlyRows(@TempDir Path projectDir) throws Exception {
 		copySample("gradle-sample", projectDir);
-		Files.writeString(projectDir.resolve("build.gradle"), Files.readString(projectDir.resolve("build.gradle"))
-				+ "\npruneCheck {\n    testReferences = false\n}\n");
+		Files.writeString(projectDir.resolve("build.gradle"),
+				Files.readString(projectDir.resolve("build.gradle"), StandardCharsets.UTF_8)
+						+ "\npruneCheck {\n    testReferences = false\n}\n",
+				StandardCharsets.UTF_8);
 
 		var result = runner(projectDir, "pruneCheck", "--console=plain").buildAndFail();
 
@@ -61,8 +64,10 @@ class SampleProjectFunctionalTest {
 	@Test
 	void checkTaskWithIgnoreFailuresLogsAJsonReportEqualToTheManifest(@TempDir Path projectDir) throws Exception {
 		copySample("gradle-sample", projectDir);
-		Files.writeString(projectDir.resolve("build.gradle"), Files.readString(projectDir.resolve("build.gradle"))
-				+ "\npruneCheck {\n    ignoreFailures = true\n    format = 'json'\n}\n");
+		Files.writeString(projectDir.resolve("build.gradle"),
+				Files.readString(projectDir.resolve("build.gradle"), StandardCharsets.UTF_8)
+						+ "\npruneCheck {\n    ignoreFailures = true\n    format = 'json'\n}\n",
+				StandardCharsets.UTF_8);
 
 		var result = runner(projectDir, "pruneCheck", "--console=plain").build();
 
@@ -89,8 +94,10 @@ class SampleProjectFunctionalTest {
 	@Test
 	void checkTaskHonoursExcludesAndStillReportsDependencies(@TempDir Path projectDir) throws Exception {
 		copySample("gradle-sample", projectDir);
-		Files.writeString(projectDir.resolve("build.gradle"), Files.readString(projectDir.resolve("build.gradle"))
-				+ "\npruneCheck {\n    excludes = ['**/*.java']\n}\n");
+		Files.writeString(projectDir.resolve("build.gradle"),
+				Files.readString(projectDir.resolve("build.gradle"), StandardCharsets.UTF_8)
+						+ "\npruneCheck {\n    excludes = ['**/*.java']\n}\n",
+				StandardCharsets.UTF_8);
 
 		var result = runner(projectDir, "pruneCheck", "--console=plain").buildAndFail();
 
@@ -131,12 +138,12 @@ class SampleProjectFunctionalTest {
 		assertTrue(result.getOutput().contains("prune-java fix: Applied 3 autofix(es) in 3 file(s); 1 issue(s) remain"),
 				result.getOutput());
 		assertTrue(result.getOutput().contains("Class ObsoleteStockExporter is never referenced"), result.getOutput());
-		assertFalse(Files.readString(stockLevel).contains("legacyExportName"));
-		assertTrue(Files.readString(stockLevel).contains("REORDER_THRESHOLD"));
-		assertTrue(Files.readString(warehouseCodes)
+		assertFalse(Files.readString(stockLevel, StandardCharsets.UTF_8).contains("legacyExportName"));
+		assertTrue(Files.readString(stockLevel, StandardCharsets.UTF_8).contains("REORDER_THRESHOLD"));
+		assertTrue(Files.readString(warehouseCodes, StandardCharsets.UTF_8)
 			.startsWith("package com.example.gradlesample;\n\nfinal class WarehouseCodes {"));
-		assertFalse(Files.readString(buildScript).contains("commons-io"));
-		assertTrue(Files.readString(buildScript).contains("slf4j-api"));
+		assertFalse(Files.readString(buildScript, StandardCharsets.UTF_8).contains("commons-io"));
+		assertTrue(Files.readString(buildScript, StandardCharsets.UTF_8).contains("slf4j-api"));
 		assertTrue(
 				Files.exists(projectDir.resolve("src/main/java/com/example/gradlesample/ObsoleteStockExporter.java")));
 
@@ -149,7 +156,7 @@ class SampleProjectFunctionalTest {
 	}
 
 	private static List<String> manifest(Path projectDir, String verdict) throws IOException {
-		return Files.readAllLines(projectDir.resolve("expected-findings.txt"))
+		return Files.readAllLines(projectDir.resolve("expected-findings.txt"), StandardCharsets.UTF_8)
 			.stream()
 			.map(String::strip)
 			.filter(line -> line.startsWith(verdict + " "))
@@ -191,12 +198,14 @@ class SampleProjectFunctionalTest {
 	 * A legacy {@code apply plugin:} line would fail with "plugin not found".
 	 */
 	private static void applyPluginUnderTest(Path buildFile) throws IOException {
-		var script = Files.readString(buildFile);
+		var script = Files.readString(buildFile, StandardCharsets.UTF_8);
 		if (!script.contains("plugins {")) {
 			throw new IllegalStateException("No plugins block to extend in " + buildFile);
 		}
-		Files.writeString(buildFile, script.replace("plugins {",
-				"plugins {" + System.lineSeparator() + "    id 'com.patbaumgartner.prune-java'"));
+		Files.writeString(buildFile,
+				script.replace("plugins {",
+						"plugins {" + System.lineSeparator() + "    id 'com.patbaumgartner.prune-java'"),
+				StandardCharsets.UTF_8);
 	}
 
 	private static Path sampleRoot(String sample) {

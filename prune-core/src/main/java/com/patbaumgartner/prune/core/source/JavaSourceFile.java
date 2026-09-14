@@ -3,6 +3,7 @@ package com.patbaumgartner.prune.core.source;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 public final class JavaSourceFile {
@@ -61,7 +62,7 @@ public final class JavaSourceFile {
 		Map<String, Integer> filled = new HashMap<>();
 		for (Token token : identifiers) {
 			int next = filled.merge(token.text(), 1, Integer::sum) - 1;
-			offsets.get(token.text())[next] = token.start();
+			Objects.requireNonNull(offsets.get(token.text()))[next] = token.start();
 		}
 		return offsets;
 	}

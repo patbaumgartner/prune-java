@@ -40,6 +40,7 @@ import org.eclipse.lsp4j.services.LanguageClientAware;
 import org.eclipse.lsp4j.services.LanguageServer;
 import org.eclipse.lsp4j.services.TextDocumentService;
 import org.eclipse.lsp4j.services.WorkspaceService;
+import org.jspecify.annotations.Nullable;
 
 import java.net.URI;
 import java.nio.file.FileSystemNotFoundException;
@@ -47,6 +48,7 @@ import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -68,7 +70,7 @@ public final class PruneLanguageServer implements LanguageServer, LanguageClient
 
 	private final CompletableFuture<Integer> exited = new CompletableFuture<>();
 
-	private LanguageClient client;
+	private @Nullable LanguageClient client;
 
 	private Path projectRoot = Path.of(".").toAbsolutePath().normalize();
 
@@ -96,8 +98,12 @@ public final class PruneLanguageServer implements LanguageServer, LanguageClient
 		this.client = client;
 	}
 
+	private LanguageClient client() {
+		return Objects.requireNonNull(client, "connect() must run before the server handles messages");
+	}
+
 	@Override
-	public CompletableFuture<InitializeResult> initialize(InitializeParams params) {
+	public synchronized CompletableFuture<InitializeResult> initialize(InitializeParams params) {
 		projectRoot = resolveProjectRoot(params);
 		clientWatchesFiles = supportsWatchRegistration(params);
 
@@ -115,7 +121,7 @@ public final class PruneLanguageServer implements LanguageServer, LanguageClient
 	}
 
 	@Override
-	public void initialized(InitializedParams params) {
+	public synchronized void initialized(InitializedParams params) {
 		if (clientWatchesFiles) {
 			registerFileWatchers();
 		}
@@ -131,7 +137,12 @@ public final class PruneLanguageServer implements LanguageServer, LanguageClient
 			.toList();
 		Registration registration = new Registration("prune-java.watchers", "workspace/didChangeWatchedFiles",
 				new DidChangeWatchedFilesRegistrationOptions(watchers));
-		client.registerCapability(new RegistrationParams(List.of(registration)));
+		LanguageClient connected = client();
+		connected.registerCapability(new RegistrationParams(List.of(registration))).exceptionally(failure -> {
+			connected.logMessage(new MessageParams(MessageType.Warning,
+					"prune-java could not register file watchers: " + failure.getMessage()));
+			return null;
+		});
 	}
 
 	private static boolean supportsWatchRegistration(InitializeParams params) {
@@ -152,9 +163,10 @@ public final class PruneLanguageServer implements LanguageServer, LanguageClient
 		exited.complete(shutdownRequested ? 0 : 1);
 	}
 
-	// Exit code per LSP spec: 0 after shutdown, 1 if exit arrives without it.
+	// Exit code per LSP spec: 0 after shutdown, 1 if exit arrives without it. The copy
+	// completes with the server's code but cannot complete the server's own future.
 	public CompletableFuture<Integer> exited() {
-		return exited;
+		return exited.copy();
 	}
 
 	@Override
@@ -212,24 +224,26 @@ public final class PruneLanguageServer implements LanguageServer, LanguageClient
 		}
 
 		AnalysisReport report;
+		LanguageClient connected = client();
 		try {
 			report = analyzer.analyze(AnalysisConfig.defaultFor(projectRoot));
 		}
 		catch (RuntimeException failure) {
-			client.logMessage(new MessageParams(MessageType.Error,
+			connected.logMessage(new MessageParams(MessageType.Error,
 					"prune-java could not analyze " + projectRoot + ": " + failure.getMessage()));
 			return;
 		}
 		lastReport = report;
 		Map<String, List<Diagnostic>> byUri = mapper.map(report, projectRoot);
-		client.logMessage(new MessageParams(MessageType.Info, report.summary()));
+		connected.logMessage(new MessageParams(MessageType.Info, report.summary()));
 
 		for (String stale : publishedUris) {
 			if (!byUri.containsKey(stale)) {
-				client.publishDiagnostics(new PublishDiagnosticsParams(stale, List.of()));
+				connected.publishDiagnostics(new PublishDiagnosticsParams(stale, List.of()));
 			}
 		}
-		byUri.forEach((uri, diagnostics) -> client.publishDiagnostics(new PublishDiagnosticsParams(uri, diagnostics)));
+		byUri.forEach(
+				(uri, diagnostics) -> connected.publishDiagnostics(new PublishDiagnosticsParams(uri, diagnostics)));
 
 		publishedUris.clear();
 		publishedUris.addAll(byUri.keySet());

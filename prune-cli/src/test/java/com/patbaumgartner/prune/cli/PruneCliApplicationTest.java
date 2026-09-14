@@ -15,8 +15,10 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.io.PrintStream;
 import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -44,12 +46,11 @@ class PruneCliApplicationTest {
 		var stdout = new ByteArrayOutputStream();
 		var stderr = new ByteArrayOutputStream();
 
-		int exitCode = app.run(new String[] { "check", "--format=terminal" }, new PrintStream(stdout),
-				new PrintStream(stderr));
+		int exitCode = app.run(new String[] { "check", "--format=terminal" }, printer(stdout), printer(stderr));
 
 		assertEquals(0, exitCode);
-		assertTrue(stdout.toString().contains("No unused code detected"));
-		assertEquals("", stderr.toString());
+		assertTrue(stdout.toString(StandardCharsets.UTF_8).contains("No unused code detected"));
+		assertEquals("", stderr.toString(StandardCharsets.UTF_8));
 	}
 
 	@Test
@@ -58,16 +59,15 @@ class PruneCliApplicationTest {
 				new ReportRenderer());
 		var stdout = new ByteArrayOutputStream();
 
-		int exitCode = app.run(new String[] { "check", "--format=terminal" }, new PrintStream(stdout),
-				new PrintStream(new ByteArrayOutputStream()));
+		int exitCode = app.run(new String[] { "check", "--format=terminal" }, printer(stdout), discard());
 
 		assertEquals(1, exitCode);
 		assertEquals("- [WARNING] src/main/java/a/C.java:1:7 :: Class C is never referenced" + System.lineSeparator()
-				+ "Summary: 1 issue" + System.lineSeparator(), stdout.toString());
+				+ "Summary: 1 issue" + System.lineSeparator(), stdout.toString(StandardCharsets.UTF_8));
 	}
 
 	@Test
-	void checkCommandAnalyzesTheWorkingDirectoryByDefaultAndTheRootOptionOtherwise() throws Exception {
+	void checkCommandAnalyzesTheWorkingDirectoryByDefaultAndTheRootOptionOtherwise() throws IOException {
 		var roots = new ArrayList<Path>();
 		UnusedCodeAnalyzer analyzer = config -> {
 			roots.add(config.projectRoot());
@@ -76,10 +76,8 @@ class PruneCliApplicationTest {
 		var app = new PruneCliApplication(analyzer, new ReportRenderer());
 		var other = Files.createDirectory(tempDir.resolve("other"));
 
-		app.run(new String[] { "check" }, new PrintStream(new ByteArrayOutputStream()),
-				new PrintStream(new ByteArrayOutputStream()));
-		app.run(new String[] { "check", "--root=" + other }, new PrintStream(new ByteArrayOutputStream()),
-				new PrintStream(new ByteArrayOutputStream()));
+		app.run(new String[] { "check" }, discard(), discard());
+		app.run(new String[] { "check", "--root=" + other }, discard(), discard());
 
 		assertEquals(List.of(Path.of("."), other), roots);
 	}
@@ -89,11 +87,11 @@ class PruneCliApplicationTest {
 		var app = new PruneCliApplication(config -> emptyReport(), new ReportRenderer());
 		var stderr = new ByteArrayOutputStream();
 
-		int exitCode = app.run(new String[] { "check", "--root=" + tempDir.resolve("missing") },
-				new PrintStream(new ByteArrayOutputStream()), new PrintStream(stderr));
+		int exitCode = app.run(new String[] { "check", "--root=" + tempDir.resolve("missing") }, discard(),
+				printer(stderr));
 
 		assertEquals(2, exitCode);
-		assertTrue(stderr.toString().startsWith("Project root is not a directory: "));
+		assertTrue(stderr.toString(StandardCharsets.UTF_8).startsWith("Project root is not a directory: "));
 	}
 
 	@Test
@@ -105,10 +103,8 @@ class PruneCliApplicationTest {
 		};
 		var app = new PruneCliApplication(analyzer, new ReportRenderer());
 
-		app.run(new String[] { "check", "--exclude=**/generated/**", "--exclude=**/*Stub.java" },
-				new PrintStream(new ByteArrayOutputStream()), new PrintStream(new ByteArrayOutputStream()));
-		app.run(new String[] { "check" }, new PrintStream(new ByteArrayOutputStream()),
-				new PrintStream(new ByteArrayOutputStream()));
+		app.run(new String[] { "check", "--exclude=**/generated/**", "--exclude=**/*Stub.java" }, discard(), discard());
+		app.run(new String[] { "check" }, discard(), discard());
 
 		assertEquals(List.of(List.of("**/generated/**", "**/*Stub.java"), List.of()), excludes);
 	}
@@ -118,11 +114,11 @@ class PruneCliApplicationTest {
 		var app = new PruneCliApplication(config -> emptyReport(), new ReportRenderer());
 		var stderr = new ByteArrayOutputStream();
 
-		int exitCode = app.run(new String[] { "check", "--exclude=" }, new PrintStream(new ByteArrayOutputStream()),
-				new PrintStream(stderr));
+		int exitCode = app.run(new String[] { "check", "--exclude=" }, discard(), printer(stderr));
 
 		assertEquals(2, exitCode);
-		assertEquals("Option --exclude needs a glob pattern" + System.lineSeparator(), stderr.toString());
+		assertEquals("Option --exclude needs a glob pattern" + System.lineSeparator(),
+				stderr.toString(StandardCharsets.UTF_8));
 	}
 
 	@Test
@@ -130,11 +126,11 @@ class PruneCliApplicationTest {
 		var app = new PruneCliApplication(config -> emptyReport(), new ReportRenderer());
 		var stderr = new ByteArrayOutputStream();
 
-		int exitCode = app.run(new String[] { "check", "--exclude=**/{Foo" },
-				new PrintStream(new ByteArrayOutputStream()), new PrintStream(stderr));
+		int exitCode = app.run(new String[] { "check", "--exclude=**/{Foo" }, discard(), printer(stderr));
 
 		assertEquals(2, exitCode);
-		assertEquals("Invalid glob pattern '**/{Foo': missing '}'" + System.lineSeparator(), stderr.toString());
+		assertEquals("Invalid glob pattern '**/{Foo': missing '}'" + System.lineSeparator(),
+				stderr.toString(StandardCharsets.UTF_8));
 	}
 
 	@Test
@@ -144,8 +140,8 @@ class PruneCliApplicationTest {
 				new ReportRenderer(), root -> engine);
 		var stdout = new ByteArrayOutputStream();
 
-		int exitCode = app.run(new String[] { "fix", "--root=" + tempDir, "--format=json" }, new PrintStream(stdout),
-				new PrintStream(new ByteArrayOutputStream()));
+		int exitCode = app.run(new String[] { "fix", "--root=" + tempDir, "--format=json" }, printer(stdout),
+				discard());
 
 		assertEquals(1, exitCode);
 		assertEquals(List.of(FIXABLE), engine.plannedFor.get(0).issues());
@@ -153,7 +149,7 @@ class PruneCliApplicationTest {
 		assertEquals("{\"summary\":\"Applied 1 autofix(es) in 1 file(s); 1 issue(s) remain (conservative mode).\","
 				+ "\"conservativeMode\":true,\"issues\":[{\"type\":\"UNUSED_CLASS\",\"severity\":\"WARNING\",\"symbol\":\"a.C\","
 				+ "\"location\":\"src/main/java/a/C.java:1:7\",\"message\":\"Class C is never referenced\",\"autoFixable\":false}],\"kept\":[]}"
-				+ System.lineSeparator(), stdout.toString());
+				+ System.lineSeparator(), stdout.toString(StandardCharsets.UTF_8));
 	}
 
 	@Test
@@ -163,13 +159,12 @@ class PruneCliApplicationTest {
 				new ReportRenderer(), root -> engine);
 		var stdout = new ByteArrayOutputStream();
 
-		int exitCode = app.run(new String[] { "fix", "--root=" + tempDir }, new PrintStream(stdout),
-				new PrintStream(new ByteArrayOutputStream()));
+		int exitCode = app.run(new String[] { "fix", "--root=" + tempDir }, printer(stdout), discard());
 
 		assertEquals(0, exitCode);
 		assertEquals("No unused code detected (conservative mode)." + System.lineSeparator()
 				+ "Summary: Applied 1 autofix(es) in 1 file(s); 0 issue(s) remain (conservative mode)."
-				+ System.lineSeparator(), stdout.toString());
+				+ System.lineSeparator(), stdout.toString(StandardCharsets.UTF_8));
 	}
 
 	@Test
@@ -181,8 +176,7 @@ class PruneCliApplicationTest {
 			return new RecordingEngine();
 		});
 
-		app.run(new String[] { "fix", "--root=" + tempDir }, new PrintStream(new ByteArrayOutputStream()),
-				new PrintStream(new ByteArrayOutputStream()));
+		app.run(new String[] { "fix", "--root=" + tempDir }, discard(), discard());
 
 		assertEquals(List.of(tempDir), roots);
 	}
@@ -196,11 +190,12 @@ class PruneCliApplicationTest {
 		var stdout = new ByteArrayOutputStream();
 		var stderr = new ByteArrayOutputStream();
 
-		int exitCode = app.run(new String[] { "check" }, new PrintStream(stdout), new PrintStream(stderr));
+		int exitCode = app.run(new String[] { "check" }, printer(stdout), printer(stderr));
 
 		assertEquals(3, exitCode);
-		assertEquals("", stdout.toString());
-		assertTrue(stderr.toString().contains("prune-java failed: java.io.IOException: disk on fire"));
+		assertEquals("", stdout.toString(StandardCharsets.UTF_8));
+		assertTrue(stderr.toString(StandardCharsets.UTF_8)
+			.contains("prune-java failed: java.io.IOException: disk on fire"));
 	}
 
 	@Test
@@ -214,11 +209,10 @@ class PruneCliApplicationTest {
 				});
 		var stderr = new ByteArrayOutputStream();
 
-		int exitCode = app.run(new String[] { "fix", "--root=" + tempDir },
-				new PrintStream(new ByteArrayOutputStream()), new PrintStream(stderr));
+		int exitCode = app.run(new String[] { "fix", "--root=" + tempDir }, discard(), printer(stderr));
 
 		assertEquals(3, exitCode);
-		assertTrue(stderr.toString().contains("changed since the fix was planned"));
+		assertTrue(stderr.toString(StandardCharsets.UTF_8).contains("changed since the fix was planned"));
 	}
 
 	@Test
@@ -226,11 +220,10 @@ class PruneCliApplicationTest {
 		var app = new PruneCliApplication(config -> emptyReport(), new ReportRenderer());
 		var stderr = new ByteArrayOutputStream();
 
-		int exitCode = app.run(new String[] { "check", "--format=invalid" },
-				new PrintStream(new ByteArrayOutputStream()), new PrintStream(stderr));
+		int exitCode = app.run(new String[] { "check", "--format=invalid" }, discard(), printer(stderr));
 
 		assertEquals(2, exitCode);
-		assertTrue(stderr.toString().contains("Unsupported format: invalid"));
+		assertTrue(stderr.toString(StandardCharsets.UTF_8).contains("Unsupported format: invalid"));
 	}
 
 	@Test
@@ -238,11 +231,10 @@ class PruneCliApplicationTest {
 		var app = new PruneCliApplication(config -> emptyReport(), new ReportRenderer());
 		var stderr = new ByteArrayOutputStream();
 
-		int exitCode = app.run(new String[] { "purge" }, new PrintStream(new ByteArrayOutputStream()),
-				new PrintStream(stderr));
+		int exitCode = app.run(new String[] { "purge" }, discard(), printer(stderr));
 
 		assertEquals(2, exitCode);
-		assertTrue(stderr.toString().contains("Unknown command: purge"));
+		assertTrue(stderr.toString(StandardCharsets.UTF_8).contains("Unknown command: purge"));
 	}
 
 	@Test
@@ -250,11 +242,10 @@ class PruneCliApplicationTest {
 		var app = new PruneCliApplication(config -> emptyReport(), new ReportRenderer());
 		var stderr = new ByteArrayOutputStream();
 
-		int exitCode = app.run(new String[] { "check", "--formta=json" }, new PrintStream(new ByteArrayOutputStream()),
-				new PrintStream(stderr));
+		int exitCode = app.run(new String[] { "check", "--formta=json" }, discard(), printer(stderr));
 
 		assertEquals(2, exitCode);
-		assertTrue(stderr.toString().contains("Unknown option: --formta=json"));
+		assertTrue(stderr.toString(StandardCharsets.UTF_8).contains("Unknown option: --formta=json"));
 	}
 
 	@Test
@@ -262,13 +253,12 @@ class PruneCliApplicationTest {
 		var app = new PruneCliApplication(config -> emptyReport(), new ReportRenderer());
 		var stdout = new ByteArrayOutputStream();
 
-		int exitCode = app.run(new String[] { "--help" }, new PrintStream(stdout),
-				new PrintStream(new ByteArrayOutputStream()));
+		int exitCode = app.run(new String[] { "--help" }, printer(stdout), discard());
 
 		assertEquals(0, exitCode);
 		assertEquals("Usage: prune-java <check|fix|baseline> [--root=<dir>] [--exclude=<glob>]... [--baseline=<file>]"
 				+ " [--no-test-references] [--explain] [--ci] [--format=terminal|github|json]" + System.lineSeparator(),
-				stdout.toString());
+				stdout.toString(StandardCharsets.UTF_8));
 	}
 
 	@Test
@@ -282,10 +272,8 @@ class PruneCliApplicationTest {
 		};
 		var app = new PruneCliApplication(analyzer, new ReportRenderer());
 
-		app.run(new String[] { "check" }, new PrintStream(new ByteArrayOutputStream()),
-				new PrintStream(new ByteArrayOutputStream()));
-		app.run(new String[] { "check", "--explain", "--no-test-references" },
-				new PrintStream(new ByteArrayOutputStream()), new PrintStream(new ByteArrayOutputStream()));
+		app.run(new String[] { "check" }, discard(), discard());
+		app.run(new String[] { "check", "--explain", "--no-test-references" }, discard(), discard());
 
 		assertEquals(List.of(false, true), explains);
 		assertEquals(List.of(true, false), testReferences);
@@ -301,20 +289,19 @@ class PruneCliApplicationTest {
 		var app = new PruneCliApplication(analyzer, new ReportRenderer());
 		var stderr = new ByteArrayOutputStream();
 
-		app.run(new String[] { "check", "--root=" + tempDir }, new PrintStream(new ByteArrayOutputStream()),
-				new PrintStream(new ByteArrayOutputStream()));
+		app.run(new String[] { "check", "--root=" + tempDir }, discard(), discard());
 		app.run(new String[] { "check", "--root=" + tempDir, "--baseline=" + tempDir.resolve("accepted.txt") },
-				new PrintStream(new ByteArrayOutputStream()), new PrintStream(new ByteArrayOutputStream()));
-		int exitCode = app.run(new String[] { "check", "--baseline=" }, new PrintStream(new ByteArrayOutputStream()),
-				new PrintStream(stderr));
+				discard(), discard());
+		int exitCode = app.run(new String[] { "check", "--baseline=" }, discard(), printer(stderr));
 
 		assertEquals(List.of(tempDir.resolve("prune-baseline.txt"), tempDir.resolve("accepted.txt")), baselines);
 		assertEquals(2, exitCode);
-		assertEquals("Option --baseline needs a file path" + System.lineSeparator(), stderr.toString());
+		assertEquals("Option --baseline needs a file path" + System.lineSeparator(),
+				stderr.toString(StandardCharsets.UTF_8));
 	}
 
 	@Test
-	void baselineCommandAnalyzesWithoutTheExistingBaselineAndWritesEveryFinding() throws Exception {
+	void baselineCommandAnalyzesWithoutTheExistingBaselineAndWritesEveryFinding() throws IOException {
 		var baselines = new ArrayList<Optional<Path>>();
 		UnusedCodeAnalyzer analyzer = config -> {
 			baselines.add(config.baseline());
@@ -324,72 +311,68 @@ class PruneCliApplicationTest {
 		var stdout = new ByteArrayOutputStream();
 		var stderr = new ByteArrayOutputStream();
 
-		int exitCode = app.run(new String[] { "baseline", "--root=" + tempDir }, new PrintStream(stdout),
-				new PrintStream(stderr));
+		int exitCode = app.run(new String[] { "baseline", "--root=" + tempDir }, printer(stdout), printer(stderr));
 
 		assertEquals(0, exitCode);
 		assertEquals(List.of(Optional.empty()), baselines);
 		assertEquals("Wrote 2 finding(s) to " + tempDir.resolve("prune-baseline.txt") + System.lineSeparator(),
-				stdout.toString());
-		assertEquals("", stderr.toString());
+				stdout.toString(StandardCharsets.UTF_8));
+		assertEquals("", stderr.toString(StandardCharsets.UTF_8));
 		assertEquals("""
 				# prune-java baseline: findings this project accepts, one "TYPE symbol" per line.
 				# check reports only findings that are not listed here; fix never touches a listed symbol.
 				# Regenerate with the baseline command, goal, or task after reviewing the remaining findings.
 				UNUSED_CLASS a.C
 				UNUSED_METHOD a.B#m
-				""", Files.readString(tempDir.resolve("prune-baseline.txt")));
+				""", Files.readString(tempDir.resolve("prune-baseline.txt"), StandardCharsets.UTF_8));
 	}
 
 	@Test
-	void baselineCommandThenCheckSuppressesEveryRecordedFindingWithTheRealAnalyzer() throws Exception {
-		var source = tempDir.resolve("src/main/java/com/example/App.java");
-		Files.createDirectories(source.getParent());
-		Files.writeString(source, "package com.example;\n\npublic class App {\n    private void helper() { }\n}\n");
+	void baselineCommandThenCheckSuppressesEveryRecordedFindingWithTheRealAnalyzer() throws IOException {
+		var source = Files.createDirectories(tempDir.resolve("src/main/java/com/example")).resolve("App.java");
+		Files.writeString(source, "package com.example;\n\npublic class App {\n    private void helper() { }\n}\n",
+				StandardCharsets.UTF_8);
 		var app = new PruneCliApplication();
 		var stdout = new ByteArrayOutputStream();
 
-		int before = app.run(new String[] { "check", "--root=" + tempDir },
-				new PrintStream(new ByteArrayOutputStream()), new PrintStream(new ByteArrayOutputStream()));
-		int baseline = app.run(new String[] { "baseline", "--root=" + tempDir },
-				new PrintStream(new ByteArrayOutputStream()), new PrintStream(new ByteArrayOutputStream()));
-		int after = app.run(new String[] { "check", "--root=" + tempDir, "--explain" }, new PrintStream(stdout),
-				new PrintStream(new ByteArrayOutputStream()));
+		int before = app.run(new String[] { "check", "--root=" + tempDir }, discard(), discard());
+		int baseline = app.run(new String[] { "baseline", "--root=" + tempDir }, discard(), discard());
+		int after = app.run(new String[] { "check", "--root=" + tempDir, "--explain" }, printer(stdout), discard());
 
 		assertEquals(List.of(1, 0, 0), List.of(before, baseline, after));
 		assertEquals("+ [KEPT] src/main/java/com/example/App.java:4:18 :: accepted in prune-baseline.txt [baseline]"
 				+ System.lineSeparator() + "No unused code detected (conservative mode)." + System.lineSeparator()
 				+ "Summary: Analyzed 1 Java file(s) under " + tempDir + ": 0 issue(s) found (conservative mode)."
-				+ " 1 issue(s) suppressed by prune-baseline.txt." + System.lineSeparator(), stdout.toString());
+				+ " 1 issue(s) suppressed by prune-baseline.txt." + System.lineSeparator(),
+				stdout.toString(StandardCharsets.UTF_8));
 	}
 
 	@Test
-	void aMalformedBaselineFileFailsTheRunWithThree() throws Exception {
-		Files.writeString(tempDir.resolve("prune-baseline.txt"), "nonsense\n");
+	void aMalformedBaselineFileFailsTheRunWithThree() throws IOException {
+		Files.writeString(tempDir.resolve("prune-baseline.txt"), "nonsense\n", StandardCharsets.UTF_8);
 		var app = new PruneCliApplication();
 		var stderr = new ByteArrayOutputStream();
 
-		int exitCode = app.run(new String[] { "check", "--root=" + tempDir },
-				new PrintStream(new ByteArrayOutputStream()), new PrintStream(stderr));
+		int exitCode = app.run(new String[] { "check", "--root=" + tempDir }, discard(), printer(stderr));
 
 		assertEquals(3, exitCode);
 		assertEquals(
 				"prune-java failed: " + tempDir.resolve("prune-baseline.txt")
 						+ ":1: expected \"TYPE symbol\" but found \"nonsense\"" + System.lineSeparator(),
-				stderr.toString());
+				stderr.toString(StandardCharsets.UTF_8));
 	}
 
 	@Test
-	void baselineCommandFailsWithThreeWhenTheFileCannotBeWritten() throws Exception {
+	void baselineCommandFailsWithThreeWhenTheFileCannotBeWritten() throws IOException {
 		var app = new PruneCliApplication(config -> emptyReport(), new ReportRenderer());
 		var stderr = new ByteArrayOutputStream();
 		Files.createDirectory(tempDir.resolve("prune-baseline.txt"));
 
-		int exitCode = app.run(new String[] { "baseline", "--root=" + tempDir },
-				new PrintStream(new ByteArrayOutputStream()), new PrintStream(stderr));
+		int exitCode = app.run(new String[] { "baseline", "--root=" + tempDir }, discard(), printer(stderr));
 
 		assertEquals(3, exitCode);
-		assertTrue(stderr.toString().startsWith("prune-java failed: "), stderr.toString());
+		assertTrue(stderr.toString(StandardCharsets.UTF_8).startsWith("prune-java failed: "),
+				stderr.toString(StandardCharsets.UTF_8));
 	}
 
 	@Test
@@ -397,11 +380,10 @@ class PruneCliApplicationTest {
 		var app = new PruneCliApplication(config -> emptyReport(), new ReportRenderer());
 		var stdout = new ByteArrayOutputStream();
 
-		int exitCode = app.run(new String[] { "check", "--ci" }, new PrintStream(stdout),
-				new PrintStream(new ByteArrayOutputStream()));
+		int exitCode = app.run(new String[] { "check", "--ci" }, printer(stdout), discard());
 
 		assertEquals(0, exitCode);
-		assertTrue(stdout.toString().startsWith("::notice::"));
+		assertTrue(stdout.toString(StandardCharsets.UTF_8).startsWith("::notice::"));
 	}
 
 	@Test
@@ -409,10 +391,9 @@ class PruneCliApplicationTest {
 		var app = new PruneCliApplication(config -> emptyReport(), new ReportRenderer());
 		var stdout = new ByteArrayOutputStream();
 
-		app.run(new String[] { "check", "--ci", "--format=json" }, new PrintStream(stdout),
-				new PrintStream(new ByteArrayOutputStream()));
+		app.run(new String[] { "check", "--ci", "--format=json" }, printer(stdout), discard());
 
-		assertTrue(stdout.toString().startsWith("{\"summary\":"));
+		assertTrue(stdout.toString(StandardCharsets.UTF_8).startsWith("{\"summary\":"));
 	}
 
 	@Test
@@ -424,15 +405,25 @@ class PruneCliApplicationTest {
 					root -> new RecordingEngine());
 			var stderr = new ByteArrayOutputStream();
 
-			int exitCode = app.run(new String[] { "FIX", "--root=" + tempDir },
-					new PrintStream(new ByteArrayOutputStream()), new PrintStream(stderr));
+			int exitCode = app.run(new String[] { "FIX", "--root=" + tempDir }, discard(), printer(stderr));
 
 			assertEquals(0, exitCode);
-			assertEquals("", stderr.toString());
+			assertEquals("", stderr.toString(StandardCharsets.UTF_8));
 		}
 		finally {
 			Locale.setDefault(original);
 		}
+	}
+
+	@Test
+	void commandParsingFoldsOnlyAsciiLetters() {
+		var app = new PruneCliApplication(config -> emptyReport(), new ReportRenderer());
+		var stderr = new ByteArrayOutputStream();
+
+		int exitCode = app.run(new String[] { "chec\u212A" }, discard(), printer(stderr));
+
+		assertEquals(2, exitCode);
+		assertEquals("Unknown command: chec\u212A" + System.lineSeparator(), stderr.toString(StandardCharsets.UTF_8));
 	}
 
 	private static AnalysisReport emptyReport() {
@@ -460,6 +451,14 @@ class PruneCliApplicationTest {
 			return new FixResult(plan.isEmpty() ? 0 : 1, plan.actions().size());
 		}
 
+	}
+
+	private static PrintStream printer(OutputStream target) {
+		return new PrintStream(target, true, StandardCharsets.UTF_8);
+	}
+
+	private static PrintStream discard() {
+		return printer(OutputStream.nullOutputStream());
 	}
 
 }

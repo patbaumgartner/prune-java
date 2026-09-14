@@ -10,6 +10,7 @@ import com.patbaumgartner.prune.core.project.GlobMatcher;
 import com.patbaumgartner.prune.core.report.AnalysisReport;
 import com.patbaumgartner.prune.core.report.OutputFormat;
 import com.patbaumgartner.prune.core.report.ReportRenderer;
+import org.jspecify.annotations.Nullable;
 
 import java.io.IOException;
 import java.io.PrintStream;
@@ -19,7 +20,6 @@ import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.function.Function;
 
 public final class PruneCliApplication {
@@ -58,7 +58,7 @@ public final class PruneCliApplication {
 	}
 
 	int run(String[] args, PrintStream out, PrintStream err) {
-		if (args.length == 0 || "help".equalsIgnoreCase(args[0]) || "--help".equals(args[0])) {
+		if (args.length == 0 || "help".equals(asciiLowerCase(args[0])) || "--help".equals(args[0])) {
 			out.println(USAGE);
 			return EXIT_OK;
 		}
@@ -182,12 +182,24 @@ public final class PruneCliApplication {
 		}
 	}
 
+	// Only ASCII letters fold, so neither the default locale nor a Kelvin sign or a
+	// dotless
+	// i can spell a command.
+	private static String asciiLowerCase(String value) {
+		StringBuilder folded = new StringBuilder(value.length());
+		for (int i = 0; i < value.length(); i++) {
+			char c = value.charAt(i);
+			folded.append(c >= 'A' && c <= 'Z' ? (char) (c + ('a' - 'A')) : c);
+		}
+		return folded.toString();
+	}
+
 	enum Command {
 
 		CHECK, FIX, BASELINE;
 
-		static Command from(String value) {
-			return switch (value.toLowerCase(Locale.ROOT)) {
+		static @Nullable Command from(String value) {
+			return switch (asciiLowerCase(value)) {
 				case "check" -> CHECK;
 				case "fix" -> FIX;
 				case "baseline" -> BASELINE;

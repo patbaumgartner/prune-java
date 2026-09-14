@@ -1,5 +1,7 @@
 package com.patbaumgartner.prune.core.dependency;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.List;
 import java.util.Map;
 
@@ -68,7 +70,7 @@ final class KnownPackages {
 	private KnownPackages() {
 	}
 
-	static List<String> rootsOf(DeclaredDependency dependency) {
+	static @Nullable List<String> rootsOf(DeclaredDependency dependency) {
 		return ROOTS.get(dependency.coordinates());
 	}
 

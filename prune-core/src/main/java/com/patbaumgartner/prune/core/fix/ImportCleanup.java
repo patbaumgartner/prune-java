@@ -5,6 +5,7 @@ import com.patbaumgartner.prune.core.source.LineMap;
 import com.patbaumgartner.prune.core.source.TextSearch;
 import com.patbaumgartner.prune.core.source.Token;
 import com.patbaumgartner.prune.core.source.TokenKind;
+import org.jspecify.annotations.Nullable;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -76,8 +77,10 @@ final class ImportCleanup {
 	private static List<ImportStatement> imports(String content) {
 		List<Token> tokens = JavaLexer.tokenize(content).stream().filter(t -> t.kind() != TokenKind.COMMENT).toList();
 		List<ImportStatement> statements = new ArrayList<>();
-		for (int i = 0; i < tokens.size(); i++) {
+		int i = 0;
+		while (i < tokens.size()) {
 			if (!tokens.get(i).isKeyword("import")) {
+				i++;
 				continue;
 			}
 			StringBuilder name = new StringBuilder();
@@ -109,7 +112,8 @@ final class ImportCleanup {
 		return statements;
 	}
 
-	private record ImportStatement(int start, int end, String name, String simpleName) {
+	// A wildcard import has no simple name to look for and is never removed.
+	private record ImportStatement(int start, int end, String name, @Nullable String simpleName) {
 	}
 
 }

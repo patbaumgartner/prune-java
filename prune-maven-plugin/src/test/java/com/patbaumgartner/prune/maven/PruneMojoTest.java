@@ -7,7 +7,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
-import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -28,7 +27,8 @@ class PruneMojoTest {
 	Path tempDir;
 
 	@Test
-	void checkMojoUsesProjectDirectoryInSummaryAndPassesOnACleanProject() throws Exception {
+	void checkMojoUsesProjectDirectoryInSummaryAndPassesOnACleanProject()
+			throws IOException, MojoExecutionException, MojoFailureException {
 		write("src/main/java/com/example/Live.java", "package com.example;\n\npublic class Live {\n}\n");
 		var mojo = checkMojo(true, "terminal");
 		var log = new CapturingLog();
@@ -43,7 +43,7 @@ class PruneMojoTest {
 	}
 
 	@Test
-	void checkMojoFailsTheBuildWithTheIssueCountAndLogsEveryFindingAsAWarning() throws Exception {
+	void checkMojoFailsTheBuildWithTheIssueCountAndLogsEveryFindingAsAWarning() throws IOException {
 		write("src/main/java/com/example/Dead.java", DEAD);
 		var mojo = checkMojo(true, "terminal");
 		var log = new CapturingLog();
@@ -58,7 +58,8 @@ class PruneMojoTest {
 	}
 
 	@Test
-	void checkMojoWithFailOnIssuesDisabledOnlyLogsAndHonoursTheFormat() throws Exception {
+	void checkMojoWithFailOnIssuesDisabledOnlyLogsAndHonoursTheFormat()
+			throws IOException, MojoExecutionException, MojoFailureException {
 		write("src/main/java/com/example/Dead.java", DEAD);
 		var mojo = checkMojo(false, "json");
 		var log = new CapturingLog();
@@ -72,7 +73,7 @@ class PruneMojoTest {
 	}
 
 	@Test
-	void checkMojoRejectsAnUnknownFormatBeforeAnalyzing() throws Exception {
+	void checkMojoRejectsAnUnknownFormatBeforeAnalyzing() {
 		var mojo = checkMojo(true, "xml");
 		mojo.setLog(new CapturingLog());
 
@@ -82,10 +83,10 @@ class PruneMojoTest {
 	}
 
 	@Test
-	void checkMojoSkipsWhenAsked() throws Exception {
+	void checkMojoSkipsWhenAsked() throws IOException, MojoExecutionException, MojoFailureException {
 		write("src/main/java/com/example/Dead.java", DEAD);
 		var mojo = checkMojo(true, "terminal");
-		setPrivateField(mojo, "skip", true);
+		mojo.skip = true;
 		var log = new CapturingLog();
 		mojo.setLog(log);
 
@@ -95,10 +96,11 @@ class PruneMojoTest {
 	}
 
 	@Test
-	void checkMojoSkipsAggregatorModulesSoFindingsAreReportedOncePerModule() throws Exception {
+	void checkMojoSkipsAggregatorModulesSoFindingsAreReportedOncePerModule()
+			throws IOException, MojoExecutionException, MojoFailureException {
 		write("core/src/main/java/com/example/Dead.java", DEAD);
 		var mojo = checkMojo(true, "terminal");
-		setPrivateField(mojo, "packaging", "pom");
+		mojo.packaging = "pom";
 		var log = new CapturingLog();
 		mojo.setLog(log);
 
@@ -110,12 +112,12 @@ class PruneMojoTest {
 	}
 
 	@Test
-	void checkMojoHonoursExcludePatterns() throws Exception {
+	void checkMojoHonoursExcludePatterns() throws IOException {
 		write("src/main/java/com/example/Dead.java", DEAD);
 		write("src/main/java/com/example/generated/Stub.java",
 				"package com.example.generated;\n\nfinal class Stub {\n}\n");
 		var mojo = checkMojo(true, "terminal");
-		setPrivateField(mojo, "excludes", List.of("**/generated/**"));
+		mojo.excludes = List.of("**/generated/**");
 		var log = new CapturingLog();
 		mojo.setLog(log);
 
@@ -127,7 +129,7 @@ class PruneMojoTest {
 	}
 
 	@Test
-	void pluginDescriptorDeclaresEveryGoalAndAnInjectableProjectDir() throws Exception {
+	void pluginDescriptorDeclaresEveryGoalAndAnInjectableProjectDir() throws IOException {
 		String descriptor;
 		try (var in = PruneMojoTest.class.getResourceAsStream("/META-INF/maven/plugin.xml")) {
 			assertNotNull(in, "plugin.xml is generated into target/classes during the build");
@@ -160,7 +162,7 @@ class PruneMojoTest {
 	}
 
 	@Test
-	void fixMojoRewritesSourcesAndLogsWhatRemains() throws Exception {
+	void fixMojoRewritesSourcesAndLogsWhatRemains() throws IOException, MojoExecutionException, MojoFailureException {
 		var service = write("src/main/java/com/example/Service.java",
 				"package com.example;\n\npublic class Service {\n    private int orphan;\n}\n");
 		write("src/main/java/com/example/Dead.java", DEAD);
@@ -170,8 +172,9 @@ class PruneMojoTest {
 
 		mojo.execute();
 
-		assertEquals("package com.example;\n\npublic class Service {\n}\n", Files.readString(service));
-		assertTrue(Files.readString(tempDir.resolve("src/main/java/com/example/Dead.java"))
+		assertEquals("package com.example;\n\npublic class Service {\n}\n",
+				Files.readString(service, StandardCharsets.UTF_8));
+		assertTrue(Files.readString(tempDir.resolve("src/main/java/com/example/Dead.java"), StandardCharsets.UTF_8)
 			.contains("private int orphan"));
 		assertTrue(
 				log.messages.contains(
@@ -184,9 +187,9 @@ class PruneMojoTest {
 	}
 
 	@Test
-	void fixMojoSkipsWhenAsked() throws Exception {
+	void fixMojoSkipsWhenAsked() throws IOException, MojoExecutionException, MojoFailureException {
 		var mojo = fixMojo();
-		setPrivateField(mojo, "skip", true);
+		mojo.skip = true;
 		var log = new CapturingLog();
 		mojo.setLog(log);
 
@@ -197,11 +200,12 @@ class PruneMojoTest {
 	}
 
 	@Test
-	void fixMojoSkipsAggregatorModulesAndRewritesNothing() throws Exception {
+	void fixMojoSkipsAggregatorModulesAndRewritesNothing()
+			throws IOException, MojoExecutionException, MojoFailureException {
 		var service = write("core/src/main/java/com/example/Service.java",
 				"package com.example;\n\npublic class Service {\n    private int orphan;\n}\n");
 		var mojo = fixMojo();
-		setPrivateField(mojo, "packaging", "pom");
+		mojo.packaging = "pom";
 		var log = new CapturingLog();
 		mojo.setLog(log);
 
@@ -209,18 +213,19 @@ class PruneMojoTest {
 
 		assertEquals(List.of("prune-java fix skipped for pom packaging; the modules are fixed individually."),
 				log.messages);
-		assertTrue(Files.readString(service).contains("private int orphan"));
+		assertTrue(Files.readString(service, StandardCharsets.UTF_8).contains("private int orphan"));
 	}
 
 	@Test
-	void checkMojoReportsTestOnlyReferencesWhenTestReferencesAreDisabled() throws Exception {
+	void checkMojoReportsTestOnlyReferencesWhenTestReferencesAreDisabled()
+			throws IOException, MojoExecutionException, MojoFailureException {
 		write("src/main/java/com/example/Helper.java", "package com.example;\n\nfinal class Helper {\n}\n");
 		write("src/test/java/com/example/HelperTest.java",
 				"package com.example;\n\nclass HelperTest {\n    Helper h = new Helper();\n}\n");
 		var included = checkMojo(true, "terminal");
 		included.setLog(new CapturingLog());
 		var excluded = checkMojo(true, "terminal");
-		setPrivateField(excluded, "testReferences", false);
+		excluded.testReferences = false;
 		var log = new CapturingLog();
 		excluded.setLog(log);
 
@@ -234,11 +239,11 @@ class PruneMojoTest {
 	}
 
 	@Test
-	void checkMojoExplainsKeptSymbolsWhenAsked() throws Exception {
+	void checkMojoExplainsKeptSymbolsWhenAsked() throws IOException, MojoExecutionException, MojoFailureException {
 		write("src/main/java/com/example/Launcher.java",
 				"package com.example;\n\nfinal class Launcher {\n    public static void main(String[] a) { }\n}\n");
 		var mojo = checkMojo(true, "terminal");
-		setPrivateField(mojo, "explain", true);
+		mojo.explain = true;
 		var log = new CapturingLog();
 		mojo.setLog(log);
 
@@ -251,7 +256,8 @@ class PruneMojoTest {
 	}
 
 	@Test
-	void checkMojoAppliesTheDefaultBaselineAndAnExplicitOne() throws Exception {
+	void checkMojoAppliesTheDefaultBaselineAndAnExplicitOne()
+			throws IOException, MojoExecutionException, MojoFailureException {
 		write("src/main/java/com/example/Dead.java", DEAD);
 		write("prune-baseline.txt", "UNUSED_CLASS com.example.Dead\n");
 		write("config/accepted.txt", "UNUSED_FIELD com.example.Dead#orphan\n");
@@ -259,7 +265,7 @@ class PruneMojoTest {
 		var defaultLog = new CapturingLog();
 		byDefault.setLog(defaultLog);
 		var explicit = checkMojo(false, "terminal");
-		setPrivateField(explicit, "baseline", tempDir.resolve("config/accepted.txt").toFile());
+		explicit.baseline = tempDir.resolve("config/accepted.txt").toFile();
 		var explicitLog = new CapturingLog();
 		explicit.setLog(explicitLog);
 
@@ -278,7 +284,7 @@ class PruneMojoTest {
 	}
 
 	@Test
-	void checkMojoTurnsAMalformedBaselineIntoAnExecutionError() throws Exception {
+	void checkMojoTurnsAMalformedBaselineIntoAnExecutionError() throws IOException {
 		write("src/main/java/com/example/Live.java", "package com.example;\n\npublic class Live {\n}\n");
 		write("prune-baseline.txt", "UNUSED_CLASS\n");
 		var mojo = checkMojo(true, "terminal");
@@ -291,7 +297,7 @@ class PruneMojoTest {
 	}
 
 	@Test
-	void fixMojoNeverTouchesABaselinedFinding() throws Exception {
+	void fixMojoNeverTouchesABaselinedFinding() throws IOException, MojoExecutionException, MojoFailureException {
 		var service = write("src/main/java/com/example/Service.java",
 				"package com.example;\n\npublic class Service {\n    private int orphan;\n}\n");
 		write("prune-baseline.txt", "UNUSED_FIELD com.example.Service#orphan\n");
@@ -301,7 +307,7 @@ class PruneMojoTest {
 
 		mojo.execute();
 
-		assertTrue(Files.readString(service).contains("private int orphan"));
+		assertTrue(Files.readString(service, StandardCharsets.UTF_8).contains("private int orphan"));
 		assertTrue(
 				log.messages.contains(
 						"prune-java fix: Applied 0 autofix(es) in 0 file(s); 0 issue(s) remain (conservative mode)."),
@@ -309,12 +315,13 @@ class PruneMojoTest {
 	}
 
 	@Test
-	void baselineMojoWritesEveryFindingIgnoringTheExistingBaselineAndCheckThenPasses() throws Exception {
+	void baselineMojoWritesEveryFindingIgnoringTheExistingBaselineAndCheckThenPasses()
+			throws IOException, MojoExecutionException, MojoFailureException {
 		write("src/main/java/com/example/Dead.java", DEAD);
 		write("prune-baseline.txt", "UNUSED_CLASS com.example.Dead\n");
 		var baseline = new PruneBaselineMojo();
-		setPrivateField(baseline, "projectDir", tempDir.toFile());
-		setPrivateField(baseline, "testReferences", true);
+		baseline.projectDir = tempDir.toFile();
+		baseline.testReferences = true;
 		var baselineLog = new CapturingLog();
 		baseline.setLog(baselineLog);
 		var check = checkMojo(true, "terminal");
@@ -331,26 +338,27 @@ class PruneMojoTest {
 				# check reports only findings that are not listed here; fix never touches a listed symbol.
 				# Regenerate with the baseline command, goal, or task after reviewing the remaining findings.
 				UNUSED_CLASS com.example.Dead
-				""", Files.readString(tempDir.resolve("prune-baseline.txt")));
+				""", Files.readString(tempDir.resolve("prune-baseline.txt"), StandardCharsets.UTF_8));
 		assertEquals(List.of(), checkLog.warnings);
 	}
 
 	@Test
-	void baselineMojoHonoursAnExplicitFileAndSkipsAggregatorsAndSkipRequests() throws Exception {
+	void baselineMojoHonoursAnExplicitFileAndSkipsAggregatorsAndSkipRequests()
+			throws IOException, MojoExecutionException, MojoFailureException {
 		write("src/main/java/com/example/Dead.java", DEAD);
 		var explicit = new PruneBaselineMojo();
-		setPrivateField(explicit, "projectDir", tempDir.toFile());
-		setPrivateField(explicit, "testReferences", true);
-		setPrivateField(explicit, "baseline", tempDir.resolve("config/accepted.txt").toFile());
+		explicit.projectDir = tempDir.toFile();
+		explicit.testReferences = true;
+		explicit.baseline = tempDir.resolve("config/accepted.txt").toFile();
 		explicit.setLog(new CapturingLog());
 		var aggregator = new PruneBaselineMojo();
-		setPrivateField(aggregator, "projectDir", tempDir.toFile());
-		setPrivateField(aggregator, "packaging", "pom");
+		aggregator.projectDir = tempDir.toFile();
+		aggregator.packaging = "pom";
 		var aggregatorLog = new CapturingLog();
 		aggregator.setLog(aggregatorLog);
 		var skipped = new PruneBaselineMojo();
-		setPrivateField(skipped, "projectDir", tempDir.toFile());
-		setPrivateField(skipped, "skip", true);
+		skipped.projectDir = tempDir.toFile();
+		skipped.skip = true;
 		var skippedLog = new CapturingLog();
 		skipped.setLog(skippedLog);
 
@@ -359,8 +367,8 @@ class PruneMojoTest {
 		aggregator.execute();
 		skipped.execute();
 
-		assertTrue(
-				Files.readString(tempDir.resolve("config/accepted.txt")).endsWith("UNUSED_CLASS com.example.Dead\n"));
+		assertTrue(Files.readString(tempDir.resolve("config/accepted.txt"), StandardCharsets.UTF_8)
+			.endsWith("UNUSED_CLASS com.example.Dead\n"));
 		assertFalse(Files.exists(tempDir.resolve("prune-baseline.txt")));
 		assertEquals(List.of("prune-java baseline skipped for pom packaging; the modules are baselined individually."),
 				aggregatorLog.messages);
@@ -368,48 +376,46 @@ class PruneMojoTest {
 	}
 
 	@Test
-	void baselineMojoTurnsAnUnwritableFileIntoAnExecutionError() throws Exception {
+	void baselineMojoTurnsAnUnwritableFileIntoAnExecutionError() throws IOException {
 		Files.createDirectory(tempDir.resolve("prune-baseline.txt"));
 		var mojo = new PruneBaselineMojo();
-		setPrivateField(mojo, "projectDir", tempDir.toFile());
-		setPrivateField(mojo, "testReferences", true);
+		mojo.projectDir = tempDir.toFile();
+		mojo.testReferences = true;
 		mojo.setLog(new CapturingLog());
 
 		var failure = assertThrows(MojoExecutionException.class, mojo::execute);
 
-		assertTrue(failure.getMessage().startsWith("prune-java could not write the baseline for " + tempDir),
-				failure.getMessage());
+		var message = failure.getMessage();
+		assertNotNull(message);
+		assertTrue(message.startsWith("prune-java could not write the baseline for " + tempDir), message);
 	}
 
-	private PruneCheckMojo checkMojo(boolean failOnIssues, String format) throws Exception {
+	private PruneCheckMojo checkMojo(boolean failOnIssues, String format) {
 		var mojo = new PruneCheckMojo();
-		setPrivateField(mojo, "projectDir", tempDir.toFile());
-		setPrivateField(mojo, "failOnIssues", failOnIssues);
-		setPrivateField(mojo, "format", format);
+		mojo.projectDir = tempDir.toFile();
+		mojo.failOnIssues = failOnIssues;
+		mojo.format = format;
 		// Maven injects the declared default; a hand-built mojo starts from Java's false.
-		setPrivateField(mojo, "testReferences", true);
+		mojo.testReferences = true;
 		return mojo;
 	}
 
-	private PruneFixMojo fixMojo() throws Exception {
+	private PruneFixMojo fixMojo() {
 		var mojo = new PruneFixMojo();
-		setPrivateField(mojo, "projectDir", tempDir.toFile());
-		setPrivateField(mojo, "format", "terminal");
-		setPrivateField(mojo, "testReferences", true);
+		mojo.projectDir = tempDir.toFile();
+		mojo.format = "terminal";
+		mojo.testReferences = true;
 		return mojo;
 	}
 
 	private Path write(String relativePath, String content) throws IOException {
 		var file = tempDir.resolve(relativePath);
-		Files.createDirectories(file.getParent());
-		Files.writeString(file, content);
+		var parent = file.getParent();
+		if (parent != null) {
+			Files.createDirectories(parent);
+		}
+		Files.writeString(file, content, StandardCharsets.UTF_8);
 		return file;
-	}
-
-	private static void setPrivateField(Object target, String fieldName, Object value) throws Exception {
-		Field field = target.getClass().getDeclaredField(fieldName);
-		field.setAccessible(true);
-		field.set(target, value);
 	}
 
 	private static final class CapturingLog implements Log {

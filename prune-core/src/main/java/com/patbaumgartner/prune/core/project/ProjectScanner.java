@@ -4,6 +4,7 @@ import com.patbaumgartner.prune.core.config.AnalysisConfig;
 import com.patbaumgartner.prune.core.config.BuildRoots;
 import com.patbaumgartner.prune.core.source.JavaSourceFile;
 import com.patbaumgartner.prune.core.source.JavaSourceParser;
+import org.jspecify.annotations.Nullable;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -62,7 +63,7 @@ public final class ProjectScanner {
 				if (dir.equals(scanRoot)) {
 					return FileVisitResult.CONTINUE;
 				}
-				String name = dir.getFileName().toString();
+				String name = fileName(dir);
 				if (name.startsWith(".")) {
 					return FileVisitResult.SKIP_SUBTREE;
 				}
@@ -96,8 +97,9 @@ public final class ProjectScanner {
 			Path relative = scanRoot.relativize(file);
 			String relativePath = relativePath(root, file);
 			boolean sourceTree = underSourceTree(relative);
+			String name = fileName(file);
 			if (!sourceTree) {
-				ScannedProject.BuildTool tool = buildTool(file.getFileName().toString());
+				ScannedProject.BuildTool tool = buildTool(name);
 				if (tool != null) {
 					String content = read(file);
 					if (underRoot) {
@@ -105,7 +107,7 @@ public final class ProjectScanner {
 					}
 					configuration.add(new ScannedProject.ResourceFile(relativePath, content, false));
 				}
-				else if (isConfiguration(file) && isTextResource(file)) {
+				else if (isConfiguration(name) && isTextResource(file, name)) {
 					configuration.add(new ScannedProject.ResourceFile(relativePath, read(file), false));
 				}
 				continue;
@@ -113,30 +115,35 @@ public final class ProjectScanner {
 			boolean testSource = isTestSource(relative);
 			if (relativePath.endsWith(".java")) {
 				JavaSourceFile source = JavaSourceParser.parse(relativePath, read(file));
-				boolean candidate = underRoot && !testSource && isDeclarationUnit(file)
+				boolean candidate = underRoot && !testSource && isDeclarationUnit(name)
 						&& includes.stream().anyMatch(include -> include.matches(relativePath))
 						&& excludes.stream().noneMatch(exclude -> exclude.matches(relativePath));
 				javaFiles.add(new ScannedProject.JavaFile(source, candidate, testSource));
 			}
-			else if (isTextResource(file)) {
+			else if (isTextResource(file, name)) {
 				resources.add(new ScannedProject.ResourceFile(relativePath, read(file), testSource));
 			}
 		}
 		return new ScannedProject(root, javaFiles, resources, configuration, buildFiles);
 	}
 
-	private static boolean isConfiguration(Path file) {
-		String name = file.getFileName().toString();
+	// Only a filesystem root has no name; it is never a project file, so the empty name
+	// matches nothing below.
+	private static String fileName(Path file) {
+		Path name = file.getFileName();
+		return name == null ? "" : name.toString();
+	}
+
+	private static boolean isConfiguration(String name) {
 		int dot = name.lastIndexOf('.');
 		return dot >= 0 && CONFIGURATION_EXTENSIONS.contains(name.substring(dot + 1).toLowerCase(Locale.ROOT));
 	}
 
-	private static boolean isDeclarationUnit(Path file) {
-		String name = file.getFileName().toString();
+	private static boolean isDeclarationUnit(String name) {
 		return !"package-info.java".equals(name) && !"module-info.java".equals(name);
 	}
 
-	private static ScannedProject.BuildTool buildTool(String name) {
+	private static ScannedProject.@Nullable BuildTool buildTool(String name) {
 		return switch (name) {
 			case "pom.xml" -> ScannedProject.BuildTool.MAVEN;
 			case "build.gradle", "build.gradle.kts" -> ScannedProject.BuildTool.GRADLE;
@@ -166,14 +173,13 @@ public final class ProjectScanner {
 	}
 
 	private static boolean isTestSourceSet(String name) {
-		if (name.equals("test") || name.endsWith("Test")) {
+		if ("test".equals(name) || name.endsWith("Test")) {
 			return true;
 		}
 		return name.startsWith("test") && Character.isUpperCase(name.charAt(4));
 	}
 
-	private static boolean isTextResource(Path file) throws IOException {
-		String name = file.getFileName().toString();
+	private static boolean isTextResource(Path file, String name) throws IOException {
 		int dot = name.lastIndexOf('.');
 		if (dot >= 0 && BINARY_EXTENSIONS.contains(name.substring(dot + 1).toLowerCase(Locale.ROOT))) {
 			return false;
