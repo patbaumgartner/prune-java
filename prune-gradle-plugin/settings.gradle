@@ -1,1 +1,32 @@
+// pluginManagement has to be the first block; it pins the plugin versions build.gradle omits.
+pluginManagement {
+    // The root pom owns every version. The plugins that also run in the Maven reactor take
+    // theirs from it, so both builds format and check with the same release and Dependabot
+    // bumps each once; the Gradle-only plugins are pinned in gradle.properties, where the
+    // Gradle Dependabot bumps them. build.gradle reads the same pom through gradle.ext.
+    // groovy.xml.XmlSlurper is spelled out: Groovy 4 no longer imports it by default.
+    def rootPom = new groovy.xml.XmlSlurper(false, false).parse(new File(settingsDir, '../pom.xml'))
+    def reactorVersion = rootPom.version.text()
+    if (!reactorVersion) {
+        throw new GradleException('Could not read the project version from ../pom.xml')
+    }
+    def pomProperty = { String name ->
+        def value = rootPom.properties.children().find { it.name() == name }?.text()
+        if (!value) {
+            throw new GradleException("Could not read ${name} from ../pom.xml")
+        }
+        value
+    }
+    gradle.ext.reactorVersion = reactorVersion
+    gradle.ext.pomProperty = pomProperty
+
+    plugins {
+        id 'io.spring.javaformat' version pomProperty('spring-javaformat.version')
+        id 'de.thetaphi.forbiddenapis' version pomProperty('forbiddenapis.version')
+        id 'net.ltgt.errorprone' version "${errorproneGradlePluginVersion}"
+        id 'net.ltgt.nullaway' version "${nullawayGradlePluginVersion}"
+        id 'com.github.spotbugs' version "${spotbugsGradlePluginVersion}"
+    }
+}
+
 rootProject.name = 'prune-gradle-plugin'

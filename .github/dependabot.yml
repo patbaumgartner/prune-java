@@ -48,6 +48,8 @@ updates:
       prefix-development: build
       include: scope
 
+  # The Gradle build reads every version it shares with the Maven reactor from the root pom;
+  # this entry only owns the Gradle-only plugin versions in prune-gradle-plugin/gradle.properties.
   - package-ecosystem: gradle
     directory: /prune-gradle-plugin
     schedule:
@@ -55,10 +57,6 @@ updates:
       day: monday
       time: "06:00"
       timezone: Europe/Zurich
-    groups:
-      test:
-        patterns:
-          - "org.junit*"
     open-pull-requests-limit: 5
     labels:
       - dependencies

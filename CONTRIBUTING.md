@@ -113,7 +113,8 @@ By taking part you agree to uphold the [Code of Conduct](CODE_OF_CONDUCT.md).
 Releases are cut by pushing a `vX.Y.Z` tag; [release.yml](.github/workflows/release.yml) then
 stages the Maven reactor and the Gradle plugin, attests their provenance, and lets JReleaser
 sign them, publish them to Maven Central, and create the GitHub release from the commit log.
-The version lives once, in the root `pom.xml`; the Gradle build reads it from there.
+The version lives once, in the root `pom.xml`; the Gradle build reads it from there through
+`settings.gradle`.
 
 ```bash
 ./mvnw versions:set -DnewVersion=1.0.0 -DgenerateBackupPoms=false
@@ -121,6 +122,13 @@ The version lives once, in the root `pom.xml`; the Gradle build reads it from th
     -DnewVersion="$(date -u +%Y-%m-%dT%H:%M:%SZ)" -DgenerateBackupPoms=false
 git commit -am "Release 1.0.0" && git tag v1.0.0 && git push --tags
 ./mvnw versions:set -DnewVersion=1.1.0-SNAPSHOT -DgenerateBackupPoms=false
+**5. Every version lives once, in the root `pom.xml`.** The project version, and every plugin and
+library version as a `<properties>` entry (`checkstyle.version`, `maven-compiler-plugin.version`,
+...). `prune-gradle-plugin/settings.gradle` reads the project version and every version the
+Gradle build shares with the reactor from that file, so both builds run the same analyzer and
+formatter releases and Dependabot bumps each once; the three Gradle-only plugins are pinned in
+`prune-gradle-plugin/gradle.properties`. Do not write a version literal into either build.
+
 git commit -am "Prepare 1.1.0-SNAPSHOT" && git push
 ```
 
