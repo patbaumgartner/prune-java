@@ -1,26 +1,24 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-    <modelVersion>4.0.0</modelVersion>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
 
-    <groupId>com.example</groupId>
-    <artifactId>samples</artifactId>
-    <version>1.0.0</version>
-    <packaging>pom</packaging>
+  <groupId>com.example</groupId>
+  <artifactId>samples</artifactId>
+  <version>1.0.0</version>
+  <packaging>pom</packaging>
 
-    <name>samples</name>
-    <description>Aggregator for the Maven sample projects. It is not a parent of any of them: each sample keeps its own parent, or none, exactly as a generated project would.</description>
+  <name>samples</name>
+  <description>Aggregator for the Maven sample projects. It is not a parent of any of them: each sample keeps its own parent, or none, exactly as a generated project would.</description>
 
-    <!--
+  <!--
     One Maven invocation reaches every Maven sample; the Gradle samples are separate builds with
     their own settings.gradle. The root reactor does not list this aggregator, so nothing here is
     built or resolved by the project's own build.
   -->
-    <modules>
-        <module>maven-sample</module>
-        <module>spring-boot-sample</module>
-        <module>quarkus-sample</module>
-        <module>helidon-sample</module>
-    </modules>
+  <modules>
+    <module>maven-sample</module>
+    <module>spring-boot-sample</module>
+    <module>quarkus-sample</module>
+    <module>helidon-sample</module>
+  </modules>
 </project>

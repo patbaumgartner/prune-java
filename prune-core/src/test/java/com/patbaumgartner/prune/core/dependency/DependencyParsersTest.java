@@ -170,13 +170,35 @@ class DependencyParsersTest {
 
 		assertEquals(
 				List.of("org.slf4j:slf4j-api", "com.google.guava:guava", "org.projectlombok:lombok", "org.example:lib",
-						"com.h2database:h2", "org.junit.jupiter:junit-jupiter", "org.example:with-block"),
+						"org.example:variable", "org.example:interpolated", "com.h2database:h2",
+						"org.junit.jupiter:junit-jupiter", "org.example:with-block"),
 				dependencies.stream().map(DeclaredDependency::coordinates).toList());
 		assertEquals(2, dependencies.get(0).startLine());
-		assertEquals(List.of("compile", "compile", "provided", "compile", "runtime", "test", "compile"),
-				dependencies.stream().map(DeclaredDependency::scope).toList());
+		assertEquals(List.of("compile", "compile", "provided", "compile", "compile", "compile", "runtime", "test",
+				"compile"), dependencies.stream().map(DeclaredDependency::scope).toList());
 		assertEquals("sources", dependencies.get(3).classifier());
 		assertFalse(dependencies.get(3).isPlainJar());
+	}
+
+	@Test
+	void gradleParserKeepsAnInterpolatedVersionButSkipsAnInterpolatedGroupOrArtifact() {
+		var dependencies = GradleBuildParser.parse("build.gradle", """
+				dependencies {
+				    implementation "${sharedGroup}:lib:1.0"
+				    implementation "org.example:lib-${flavor}:1.0"
+				    implementation "org.example:braces:${libs.versions.lib.get()}"
+				    implementation "org.example:bare:$libVersion"
+				    implementation "org.example:classified:${libVersion}:sources"
+				    implementation group: "org.example", name: "mapped", version: "${libVersion}"
+				    implementation group: "${sharedGroup}", name: "mapped-group", version: "1.0"
+				}
+				""");
+
+		assertEquals(List.of("org.example:braces", "org.example:bare", "org.example:classified", "org.example:mapped"),
+				dependencies.stream().map(DeclaredDependency::coordinates).toList());
+		assertEquals(List.of(4, 5, 6, 7), dependencies.stream().map(DeclaredDependency::startLine).toList());
+		assertEquals("sources", dependencies.get(2).classifier());
+		assertTrue(dependencies.get(0).isPlainJar());
 	}
 
 	@Test

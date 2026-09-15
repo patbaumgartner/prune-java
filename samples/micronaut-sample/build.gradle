@@ -1,5 +1,5 @@
 plugins {
-    id 'io.micronaut.application' version '5.0.2'
+    id 'io.micronaut.application'
 }
 
 group = 'com.example'
@@ -35,10 +35,10 @@ dependencies {
     implementation 'io.micronaut.serde:micronaut-serde-jackson'
 
     // Used: imported by GreetingService.
-    implementation 'com.github.ben-manes.caffeine:caffeine:3.2.4'
+    implementation "com.github.ben-manes.caffeine:caffeine:${caffeineVersion}"
 
     // Deliberately unused: never imported. See expected-findings.txt.
-    implementation 'org.apache.commons:commons-csv:1.14.1'
+    implementation "org.apache.commons:commons-csv:${commonsCsvVersion}"
 
     annotationProcessor 'io.micronaut:micronaut-http-validation'
     annotationProcessor 'io.micronaut.serde:micronaut-serde-processor'

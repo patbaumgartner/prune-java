@@ -67,13 +67,16 @@ public final class GradleBuildParser {
 		return from + 1;
 	}
 
+	// The symbol is group:artifact, so an interpolated version or classifier is
+	// harmless; an interpolated group or artifact cannot be resolved and is skipped.
 	private static @Nullable DeclaredDependency fromCoordinates(String configuration, String notation, String buildFile,
 			int line, int endLine) {
-		if (notation.contains("$") || notation.contains("@")) {
+		if (notation.contains("@")) {
 			return null;
 		}
 		String[] parts = notation.split(":", -1);
-		if (parts.length < 2 || parts.length > 4 || parts[0].isEmpty() || parts[1].isEmpty()) {
+		if (parts.length < 2 || parts.length > 4 || parts[0].isEmpty() || parts[1].isEmpty() || parts[0].contains("$")
+				|| parts[1].contains("$")) {
 			return null;
 		}
 		String classifier = parts.length == 4 ? parts[3] : "";

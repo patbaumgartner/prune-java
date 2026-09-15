@@ -17,6 +17,7 @@
   <description>Fixture project for prune-java: a Helidon SE application with a module descriptor and deliberate dead code.</description>
 
   <properties>
+    <jsoup.version>1.23.2</jsoup.version>
     <mainClass>com.example.helidonsample.Main</mainClass>
   </properties>
 
@@ -42,7 +43,7 @@
     <dependency>
       <groupId>org.jsoup</groupId>
       <artifactId>jsoup</artifactId>
-      <version>1.23.2</version>
+      <version>${jsoup.version}</version>
     </dependency>
 
     <dependency>
