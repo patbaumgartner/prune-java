@@ -1,8 +1,10 @@
-// Applies the plugin to a build that does not declare it, so pruneCheck and pruneFix can be run
-// against samples/gradle-sample (or any other project) without touching its build scripts:
+// Applies the plugin to a build that does not declare it, so pruneCheck, pruneFix, and
+// pruneBaseline can run against samples/gradle-sample (or any other project) without touching
+// its build scripts:
 //
-//   ./gradlew publishToMavenLocal                                   # in this directory, once
-//   ../../prune-gradle-plugin/gradlew -I ../../prune-gradle-plugin/prune-java.init.gradle pruneCheck
+//   ./gradlew publishToMavenLocal                        # in this directory, once
+//   cd ../samples/gradle-sample && ../../prune-gradle-plugin/gradlew \
+//       -I ../../prune-gradle-plugin/prune-java.init.gradle pruneCheck
 //
 // Applied by class, not by id: the init script classpath is invisible to project plugin lookup.
 

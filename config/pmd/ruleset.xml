@@ -63,24 +63,30 @@
     <rule ref="category/java/design.xml/UselessOverridingMethod" />
 
     <!-- Error prone -->
-    <!-- `tokens.get(pos++)` and `starts[count++]` are the parsers' idiom; the rule still
-         catches `if (x = y)`. -->
+    <!--
+        `tokens.get(pos++)` and `starts[count++]` are the parsers' idiom; the rule still catches
+        `if (x = y)`.
+    -->
     <rule ref="category/java/errorprone.xml/AssignmentInOperand">
         <properties>
             <property name="allowIncrementDecrement" value="true" />
         </properties>
     </rule>
     <rule ref="category/java/errorprone.xml/AssignmentToNonFinalStatic" />
-    <!-- A loop that filters with `continue` and returns its first match is a find, not a
-         branch mistaken for a loop body; break and continue stay checked. -->
+    <!--
+        A loop that filters with `continue` and returns its first match is a find, not a branch
+        mistaken for a loop body; break and continue stay checked.
+    -->
     <rule ref="category/java/errorprone.xml/AvoidBranchingStatementAsLastInLoop">
         <properties>
             <property name="checkReturnLoopTypes" value="" />
         </properties>
     </rule>
     <rule ref="category/java/errorprone.xml/AvoidDecimalLiteralsInBigDecimalConstructor" />
-    <!-- The parser's opaque fallback catches RuntimeException on purpose; NPE, Error and
-         Throwable are never a legitimate catch here. -->
+    <!--
+        The parser's opaque fallback catches RuntimeException on purpose; NPE, Error and Throwable
+        are never a legitimate catch here.
+    -->
     <rule ref="category/java/errorprone.xml/AvoidCatchingGenericException">
         <properties>
             <property name="typesThatShouldNotBeCaught"
@@ -104,8 +110,9 @@
     <rule ref="category/java/errorprone.xml/DoNotTerminateVM" />
     <rule ref="category/java/errorprone.xml/DoNotThrowExceptionInFinally" />
     <rule ref="category/java/errorprone.xml/DontUseFloatTypeForLoopIndices" />
-    <!-- A catch that says in a comment why nothing happens is a decision, not an
-         oversight. -->
+    <!--
+        A catch that says in a comment why nothing happens is a decision, not an oversight.
+    -->
     <rule ref="category/java/errorprone.xml/EmptyCatchBlock">
         <properties>
             <property name="allowCommentedBlocks" value="true" />

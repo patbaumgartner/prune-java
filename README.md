@@ -188,16 +188,22 @@ and refuse a download that does not match.
 
 Both builds also check that every source is in Spring Java Format and every `pom.xml` in
 sortpom order before compiling anything; `./mvnw spring-javaformat:apply sortpom:sort` and
-`./gradlew format` fix a stray file. The hand-rolled parsers are fuzzed with
-[Jazzer](https://github.com/CodeIntelligenceTesting/jazzer) through
+`./gradlew format` fix a stray file. Then they run Checkstyle, Error Prone with NullAway, PMD,
+SpotBugs with Find Security Bugs, forbidden-apis, and the Maven enforcer rules from the shared
+rule files under [config/](config/), each failing the build on its first finding. The hand-rolled
+parsers are fuzzed with [Jazzer](https://github.com/CodeIntelligenceTesting/jazzer) through
 `./mvnw -pl prune-core -Pfuzz test-compile exec:exec`, and every crash it ever found is replayed
-as a regular test. See [CONTRIBUTING.md](CONTRIBUTING.md) for both.
+as a regular test. Finally, both builds dogfood the tool: CI analyzes every module of this
+repository with the Maven plugin and the Gradle plugin it just built, so prune-java is its own
+largest fixture and a private method that loses its last caller fails the build.
+See [CONTRIBUTING.md](CONTRIBUTING.md#static-analysis) for all of it.
 
 ## CLI and CI usage
 
 After `./mvnw package`:
 
 ```bash
+java -jar prune-cli/target/prune-cli-0.1.0-SNAPSHOT.jar --help                      # usage; `help` and no arguments do the same
 java -jar prune-cli/target/prune-cli-0.1.0-SNAPSHOT.jar check                       # analyze the working directory
 java -jar prune-cli/target/prune-cli-0.1.0-SNAPSHOT.jar check --root=path/to/project
 java -jar prune-cli/target/prune-cli-0.1.0-SNAPSHOT.jar check --exclude='**/generated/**'  # repeatable glob, relative to the root
@@ -286,10 +292,12 @@ pruneCheck {
 }
 ```
 
-`pruneCheck` (group `verification`) fails the build with the same message as the Maven goal;
-`pruneFix` rewrites the project and accepts the same `format`, `excludes`, `baseline`, and
-`testReferences`; `pruneBaseline` writes the current findings to the `baseline` file and always
-runs, because its real input is every source of the build. All three are
+`pruneCheck` (group `verification`) fails the build with the same message as the Maven goal
+unless `ignoreFailures` is set, and takes `format`, `excludes`, `baseline`, `testReferences`,
+and `explain` as shown above; `pruneFix` rewrites the project and accepts the same `format`,
+`excludes`, `baseline`, and `testReferences`; `pruneBaseline` takes `excludes`, `baseline`, and
+`testReferences`, writes the current findings to the `baseline` file, and always runs, because
+its real input is every source of the build. All three are
 configuration-cache compatible and analyze the applying project's directory, with sibling
 projects of the same build counted as callers. Apply the plugin to the root project to analyze
 every subproject in one task, or to individual subprojects for one task each; doing both reports

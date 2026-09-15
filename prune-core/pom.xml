@@ -15,8 +15,10 @@
 
   <!-- prune-core has no runtime dependencies on purpose. Do not add any. -->
   <dependencies>
-    <!-- Test scope only: FuzzedDataProvider for ParserFuzzer; the driver itself runs in the
-        fuzz profile. -->
+    <!--
+      Test scope only: FuzzedDataProvider for ParserFuzzer; the driver itself runs in the fuzz
+      profile.
+    -->
     <dependency>
       <groupId>com.code-intelligence</groupId>
       <artifactId>jazzer-api</artifactId>
@@ -38,8 +40,9 @@
       </plugin>
     </plugins>
   </build>
-  <!-- Explicit, because the flattened POM would otherwise append the module name to the parent
-    URL. -->
+  <!--
+    Explicit, because the flattened POM would otherwise append the module name to the parent URL.
+  -->
   <url>https://github.com/patbaumgartner/prune-java</url>
 
   <profiles>

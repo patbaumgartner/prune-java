@@ -59,23 +59,21 @@
       </plugin>
 
       <!--
-        Integration tests: invokes the packaged plugin against samples/maven-sample
-        through a real Maven process. Unit tests cannot catch goal-invocation
-        failures such as a @Parameter declared with a type Maven cannot inject.
-        Skip with -Dinvoker.skip=true.
+        Integration tests: invokes the packaged plugin against samples/maven-sample through a real
+        Maven process. Unit tests cannot catch goal-invocation failures such as a @Parameter
+        declared with a type Maven cannot inject. Skip with -Dinvoker.skip=true.
 
-        The goals are listed here rather than in an invoker.properties beside the
-        sample: the sample stays a clean standalone project, and ${project.version}
-        interpolates here whereas invoker.properties is not filtered. They are also
-        invoked directly rather than through a lifecycle phase, so the sample's own
-        dependencies are never resolved and the ITs stay offline-safe.
+        The goals are listed here rather than in an invoker.properties beside the sample: the sample
+        stays a clean standalone project, and ${project.version} interpolates here whereas
+        invoker.properties is not filtered. They are also invoked directly rather than through a
+        lifecycle phase, so the sample's own dependencies are never resolved and the ITs stay
+        offline-safe.
 
-        The sample deliberately contains dead code, so check would fail the forked
-        build; prune.failOnIssues=false keeps this IT about invocability while the
-        findings themselves are asserted by prune-core's SampleProjectFixtureTest.
-        fix then rewrites the clone under target/it, never the sample itself, baseline
-        records what fix left behind, and the final check shows every remaining
-        finding suppressed by that baseline in build.log.
+        The sample deliberately contains dead code, so check would fail the forked build;
+        prune.failOnIssues=false keeps this IT about invocability while the findings themselves are
+        asserted by prune-core's SampleProjectFixtureTest. fix then rewrites the clone under
+        target/it, never the sample itself, baseline records what fix left behind, and the final
+        check shows every remaining finding suppressed by that baseline in build.log.
       -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
