@@ -73,7 +73,7 @@
       too; CI runs the plugin under both lines.
     -->
     <maven.version>3.9.0</maven.version>
-    <nullaway.version>0.14.1</nullaway.version>
+    <nullaway.version>0.14.2</nullaway.version>
     <pmd.version>7.27.0</pmd.version>
     <!--
       Fixed timestamp for every archive entry, which makes the published jars byte-for-byte
