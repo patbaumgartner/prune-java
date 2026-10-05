@@ -31,7 +31,7 @@
       once. Only the Gradle-only plugins are pinned elsewhere, in
       prune-gradle-plugin/gradle.properties.
     -->
-    <checkstyle.version>14.1.0</checkstyle.version>
+    <checkstyle.version>14.3.0</checkstyle.version>
     <errorprone.version>2.50.0</errorprone.version>
     <exec-maven-plugin.version>3.6.4</exec-maven-plugin.version>
     <extra-enforcer-rules.version>1.12.1</extra-enforcer-rules.version>
