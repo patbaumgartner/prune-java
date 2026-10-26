@@ -32,7 +32,7 @@
       prune-gradle-plugin/gradle.properties.
     -->
     <checkstyle.version>14.3.0</checkstyle.version>
-    <errorprone.version>2.50.0</errorprone.version>
+    <errorprone.version>2.51.0</errorprone.version>
     <exec-maven-plugin.version>3.6.4</exec-maven-plugin.version>
     <extra-enforcer-rules.version>1.12.1</extra-enforcer-rules.version>
     <findsecbugs.version>1.14.0</findsecbugs.version>
