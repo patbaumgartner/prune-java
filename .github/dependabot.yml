@@ -62,6 +62,10 @@ updates:
     actions:
       patterns:
       - '*'
+    multi-step-actions:
+      patterns:
+      - github/codeql-action/*
+      - gradle/actions/*
   open-pull-requests-limit: 5
   labels:
   - dependencies
@@ -69,8 +73,3 @@ updates:
   commit-message:
     prefix: ci
     include: scope
-groups:
-  multi-step-actions:
-    patterns:
-    - github/codeql-action/*
-    - gradle/actions/*
