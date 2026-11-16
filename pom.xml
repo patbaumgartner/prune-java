@@ -33,10 +33,10 @@
     -->
     <checkstyle.version>14.4.0</checkstyle.version>
     <errorprone.version>2.52.0</errorprone.version>
-    <exec-maven-plugin.version>3.6.4</exec-maven-plugin.version>
+    <exec-maven-plugin.version>3.7.0</exec-maven-plugin.version>
     <extra-enforcer-rules.version>1.12.1</extra-enforcer-rules.version>
     <findsecbugs.version>1.14.0</findsecbugs.version>
-    <flatten-maven-plugin.version>1.8.0</flatten-maven-plugin.version>
+    <flatten-maven-plugin.version>1.9.0</flatten-maven-plugin.version>
     <forbiddenapis.version>3.11</forbiddenapis.version>
     <!--
       lsp4j declares gson as an open range, which would make every prune-lsp build resolve whatever
@@ -87,7 +87,7 @@
     <spotbugs-maven-plugin.version>4.10.5.0</spotbugs-maven-plugin.version>
     <spotbugs.version>4.10.5</spotbugs.version>
     <spring-javaformat.version>0.0.48</spring-javaformat.version>
-    <versions-maven-plugin.version>2.23.0</versions-maven-plugin.version>
+    <versions-maven-plugin.version>2.25.1</versions-maven-plugin.version>
   </properties>
 
   <dependencyManagement>
